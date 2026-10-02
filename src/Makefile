@@ -24,6 +24,7 @@ SRCS += mem_file.c
 SRCS += archive.c
 SRCS += ctrl.c
 SRCS += port_alloc.c
+SRCS += rss.c
 
 SRCS += sock.c
 SRCS += offload.c

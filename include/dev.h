@@ -13,6 +13,7 @@
 
 #include "ip.h"
 #include "pktfuzz.h"
+#include "rss.h"
 
 #define DEFAULT_MTU			1500
 #define DEFAULT_MAX_MTU			9216
@@ -74,6 +75,8 @@ struct dev_port {
 	char device_id[DEV_INFO_LEN];
 
 	struct nic_spec *nic_spec;
+
+	uint16_t rss_tags[RSS_TAG_TABLE_SIZE];
 } __rte_cache_aligned;
 
 struct net_dev {

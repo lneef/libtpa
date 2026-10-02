@@ -43,6 +43,7 @@ BINS += ctrl
 BINS += flex_fifo
 BINS += archive
 BINS += utils
+BINS += rss
 
 BINS += arp
 BINS += garp

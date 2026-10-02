@@ -330,6 +330,8 @@ int dev_port_init(void)
 		dev.ports[i].nic_spec = nic_spec;
 		dev.ports[i].nr_rx_burst = nic_spec->rx_burst_cap;
 
+		rss_build_tag_table(dev.ports[i].rss_tags);
+
 		rte_eth_dev_get_name_by_port(i, dev.ports[i].device_id);
 		LOG("detected dpdk port %hu: %s, drv_name %s",
 		    i, dev.ports[i].device_id, nic_spec->name);
