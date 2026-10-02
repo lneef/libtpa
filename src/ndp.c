@@ -68,8 +68,8 @@ static void ndp_init_hdr(struct ndp_solicit_hdr *hdr, struct tpa_ip *ip)
 	hdr->eth.ether_type = htons(RTE_ETHER_TYPE_IPV6);
 
 	ip_hdr = &hdr->ip6;
-	memcpy(ip_hdr->dst_addr, multicast_ip, 16);
-	memcpy(ip_hdr->src_addr, &dev.ip6.ip, 16);
+	memcpy(IP6_ADDR_BYTES(ip_hdr->dst_addr), multicast_ip, 16);
+	memcpy(IP6_ADDR_BYTES(ip_hdr->src_addr), &dev.ip6.ip, 16);
 	ip_hdr->vtc_flow = htonl(6 << 28);
 	ip_hdr->payload_len = htons(sizeof(*hdr) - sizeof(hdr->eth) - sizeof(hdr->ip6));
 	ip_hdr->hop_limits = 255;
@@ -123,7 +123,7 @@ static int ndp_solicit_by_socket(int fd, struct tpa_ip *ip)
 	memset(&addr, 0, sizeof(addr));
 	addr.sin6_family = AF_INET6;
 	addr.sin6_scope_id = if_nametoindex(dev.name);
-	memcpy(addr.sin6_addr.s6_addr, hdr.ip6.dst_addr, sizeof(addr.sin6_addr.s6_addr));
+	memcpy(addr.sin6_addr.s6_addr, IP6_ADDR_BYTES(hdr.ip6.dst_addr), sizeof(addr.sin6_addr.s6_addr));
 
 	if (sendto(fd, &hdr.ns, size, 0, (struct sockaddr *)&addr, sizeof(addr)) != size) {
 		LOG_WARN("failed to send ndp neigh solicit packet: %s", strerror(errno));

@@ -6,7 +6,6 @@ export SRC_ROOT   = $(shell pwd)
 export BUILD_ROOT = $(SRC_ROOT)/build
 export OBJ_ROOT   = $(BUILD_ROOT)/objs
 export BIN_ROOT   = $(BUILD_ROOT)/bin
-export RTE_SDK    = $(BUILD_ROOT)/dpdk/$(DPDK_VERSION)
 export INSTALL_ROOT = /usr/share/tpa
 export LIBTPA_A  = $(BUILD_ROOT)/libtpa.a
 export LIBTPA_SO = $(BUILD_ROOT)/libtpa.so
@@ -47,9 +46,6 @@ CFLAGS += -Wno-address-of-packed-member
 
 LDFLAGS := $(EXTRA_LDFLAGS)
 LDFLAGS += -lpthread -ldl -lnuma -lpcap
-ifeq ($(NIC_TYPE),mlnx)
-LDFLAGS += -libverbs -lmlx5
-endif
 
 ifeq ($(BUILD_MODE),asan)
 CFLAGS  += -fsanitize=address
@@ -61,12 +57,8 @@ export EXTRA_LDFLAGS
 export CFLAGS
 export LDFLAGS
 
-ifneq ($(filter v20.11% v22.11%, $(DPDK_VERSION)),)
-ifeq ($(ARCH), x86_64)
-export DPDK_LD_PATH = $(RTE_SDK)/$(RTE_TARGET)/lib/x86_64-linux-gnu
-else
-export DPDK_LD_PATH = $(RTE_SDK)/$(RTE_TARGET)/lib
-endif
-else
-export DPDK_LD_PATH = $(RTE_SDK)/$(RTE_TARGET)/lib
-endif
+# dpdk is taken from the system install (pkg-config libdpdk); we link
+# it statically, hence DPDK_LDFLAGS only reports the non-dpdk libs.
+export DPDK_CFLAGS  := $(shell pkg-config --cflags libdpdk)
+export DPDK_LDFLAGS := $(shell pkg-config --libs --static libdpdk | tr ' ' '\n' | \
+			 grep -v rte | grep '^-l' | sort -u | tr '\n' ' ')

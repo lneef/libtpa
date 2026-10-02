@@ -93,4 +93,10 @@ static inline void dpdk_enable_jumbo_frame(struct rte_eth_conf *conf, uint32_t m
 
 #endif
 
+#if RTE_VERSION >= RTE_VERSION_NUM(24,11,0,0)
+#define IP6_ADDR_BYTES(addr)		((addr).a)
+#else
+#define IP6_ADDR_BYTES(addr)		(addr)
+#endif
+
 #endif /* _DPDK_COMPAT_H_ */

@@ -6,14 +6,14 @@ MAKEFLAGS += --no-print-directory
 
 export TPA_VERSION   = 1.0-rc0
 export BUILD_MODE   ?= release
-export DPDK_VERSION ?= v20.11.3
-export NIC_TYPE     ?= mlnx
+export DPDK_VERSION ?= v26.07
+export DPDK_LD_PATH = $(shell pkg-config --variable=libdir libdpdk)
 
 include buildtools/vars.mk
 
 SUBDIRS = lib src test tools tpad app
 
-.PHONY: all install clean distclean $(SUBDIRS) dpdk gtags scan-build so summary static
+.PHONY: all install clean distclean $(SUBDIRS) gtags scan-build so summary static
 
 all: summary $(SUBDIRS)
 
@@ -21,12 +21,8 @@ $(SUBDIRS):
 	$(MAKE) -C $@
 
 test tools app: src lib
-lib src: dpdk
 tpad: tools lib
 tools app: static
-
-dpdk:
-	$(Q)bash ./buildtools/build-dpdk.sh
 
 $(LIBTPA_SO): src lib
 	$(Q)echo "  LD $(notdir $@)"

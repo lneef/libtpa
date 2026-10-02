@@ -188,8 +188,8 @@ static void dump_flow_pattern(const struct rte_flow_item *item)
 
 		LOG_DEBUG("rte flow ipv6 pattern:");
 		if (ip6_spec) {
-			inet_ntop(AF_INET6, ip6_spec->hdr.src_addr, src, INET6_ADDRSTRLEN);
-			inet_ntop(AF_INET6, ip6_spec->hdr.dst_addr, dst, INET6_ADDRSTRLEN);
+			inet_ntop(AF_INET6, IP6_ADDR_BYTES(ip6_spec->hdr.src_addr), src, INET6_ADDRSTRLEN);
+			inet_ntop(AF_INET6, IP6_ADDR_BYTES(ip6_spec->hdr.dst_addr), dst, INET6_ADDRSTRLEN);
 			LOG_DEBUG("  spec: vtc_flow=%u proto=%hhu src=%s, dst=%s ",
 				  ip6_spec->hdr.vtc_flow, ip6_spec->hdr.proto,
 				  src, dst);
@@ -197,8 +197,8 @@ static void dump_flow_pattern(const struct rte_flow_item *item)
 			LOG_DEBUG("  spec = null");
 		}
 		if (ip6_mask) {
-			inet_ntop(AF_INET6, ip6_mask->hdr.src_addr, src, INET6_ADDRSTRLEN);
-			inet_ntop(AF_INET6, ip6_mask->hdr.dst_addr, dst, INET6_ADDRSTRLEN);
+			inet_ntop(AF_INET6, IP6_ADDR_BYTES(ip6_mask->hdr.src_addr), src, INET6_ADDRSTRLEN);
+			inet_ntop(AF_INET6, IP6_ADDR_BYTES(ip6_mask->hdr.dst_addr), dst, INET6_ADDRSTRLEN);
 			LOG_DEBUG("  mask: vtc_flow=%u proto=%hhu src=%s, dst=%s ",
 				  ip6_mask->hdr.vtc_flow, ip6_mask->hdr.proto,
 				  src, dst);
@@ -376,8 +376,8 @@ static void offload_translate(struct offload_rule *rule, struct offload_ctx *ctx
 			ctx->ip_spec.hdr.src_addr = tpa_ip_get_ipv4(&rule->src_ip);
 			ctx->ip_mask.hdr.src_addr = 0xffffffff;
 		} else {
-			memcpy(ctx->ip6_spec.hdr.src_addr, rule->src_ip.u8, 16);
-			memset(ctx->ip6_mask.hdr.src_addr, 0xff, 16);
+			memcpy(IP6_ADDR_BYTES(ctx->ip6_spec.hdr.src_addr), rule->src_ip.u8, 16);
+			memset(IP6_ADDR_BYTES(ctx->ip6_mask.hdr.src_addr), 0xff, 16);
 			ctx->is_ipv6 = 1;
 		}
 	}
@@ -387,8 +387,8 @@ static void offload_translate(struct offload_rule *rule, struct offload_ctx *ctx
 			ctx->ip_mask.hdr.dst_addr = 0xffffffff;
 			debug_assert(ctx->is_ipv6 == 0);
 		} else {
-			memcpy(ctx->ip6_spec.hdr.dst_addr, rule->dst_ip.u8, 16);
-			memset(ctx->ip6_mask.hdr.dst_addr, 0xff, 16);
+			memcpy(IP6_ADDR_BYTES(ctx->ip6_spec.hdr.dst_addr), rule->dst_ip.u8, 16);
+			memset(IP6_ADDR_BYTES(ctx->ip6_mask.hdr.dst_addr), 0xff, 16);
 			ctx->is_ipv6 = 1;
 		}
 	}

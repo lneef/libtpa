@@ -2,15 +2,11 @@
 # Copyright (c) 2021, ByteDance Ltd. and/or its Affiliates
 # Author: Yuanhan Liu <liuyuanhan.131@bytedance.com>
 
-ifeq ($(RTE_SDK),)
-$(error "no RTE_SDK defined")
-endif
-
 CFLAGS += -I$(SRC_ROOT)/include
 CFLAGS += -DALLOW_EXPERIMENTAL_API -DTPA_DEBUG
 CFLAGS += -Wno-unused-function
 CFLAGS += -Wno-unused-result
-CFLAGS += $(shell $(SRC_ROOT)/buildtools/dpdk-pkg-config --cflags)
+CFLAGS += $(DPDK_CFLAGS)
 
 LIBS  = $(OBJ_ROOT)/src/tpa-core.a
 LIBS += $(OBJ_ROOT)/lib/tpa-lib.a
@@ -24,13 +20,13 @@ LIBS += $(DPDK_LD_PATH)/librte_net.a
 LIBS += $(DPDK_LD_PATH)/librte_ring.a
 LIBS += $(DPDK_LD_PATH)/librte_hash.a
 LIBS += $(DPDK_LD_PATH)/librte_rcu.a
-
-ifneq ($(filter v20.11% v22.11%, $(DPDK_VERSION)),)
 LIBS += $(DPDK_LD_PATH)/librte_telemetry.a
-endif
+LIBS += $(DPDK_LD_PATH)/librte_log.a
+LIBS += $(DPDK_LD_PATH)/librte_argparse.a
+LIBS += $(DPDK_LD_PATH)/librte_meter.a
 
 LDFLAGS += -Wl,--whole-archive $(LIBS) -Wl,--no-whole-archive
-LDFLAGS += $(shell $(SRC_ROOT)/buildtools/dpdk-pkg-config --ldflags)
+LDFLAGS += $(DPDK_LDFLAGS)
 
 BINS  = port_alloc
 BINS += isn_gen

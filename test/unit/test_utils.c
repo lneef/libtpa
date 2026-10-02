@@ -257,8 +257,8 @@ struct packet *ut_make_packet(int is_reply, uint16_t client_port, uint32_t flow_
 
 	if (is_reply) {
 		if (ut_test_opts.with_ipv6) {
-			memcpy(ip6->src_addr, SERVER_IP6, 16);
-			memcpy(ip6->dst_addr, CLIENT_IP6, 16);
+			memcpy(IP6_ADDR_BYTES(ip6->src_addr), SERVER_IP6, 16);
+			memcpy(IP6_ADDR_BYTES(ip6->dst_addr), CLIENT_IP6, 16);
 		} else {
 			ip->src_addr = SERVER_IP;
 			ip->dst_addr = CLIENT_IP;
@@ -267,8 +267,8 @@ struct packet *ut_make_packet(int is_reply, uint16_t client_port, uint32_t flow_
 		tcp->dst_port = client_port;
 	} else {
 		if (ut_test_opts.with_ipv6) {
-			memcpy(ip6->src_addr, CLIENT_IP6, 16);
-			memcpy(ip6->dst_addr, SERVER_IP6, 16);
+			memcpy(IP6_ADDR_BYTES(ip6->src_addr), CLIENT_IP6, 16);
+			memcpy(IP6_ADDR_BYTES(ip6->dst_addr), SERVER_IP6, 16);
 		} else {
 			ip->src_addr = CLIENT_IP;
 			ip->dst_addr = SERVER_IP;
@@ -607,8 +607,8 @@ struct packet *make_ndp_rsp_pkt(struct tpa_ip *rsp_ip, uint8_t *mac)
 	eth->ether_type = htons(RTE_ETHER_TYPE_IPV6);
 
 	ip = &hdr->ip6;
-	memcpy(ip->dst_addr, &dev.ip6.ip, 16);
-	memcpy(ip->src_addr, rsp_ip, 16);
+	memcpy(IP6_ADDR_BYTES(ip->dst_addr), &dev.ip6.ip, 16);
+	memcpy(IP6_ADDR_BYTES(ip->src_addr), rsp_ip, 16);
 	ip->vtc_flow = htonl(6 << 28);
 	ip->payload_len = htons(sizeof(*hdr) - sizeof(hdr->eth) - sizeof(hdr->ip6));
 	ip->hop_limits = 255;
@@ -817,8 +817,8 @@ static uint16_t parse_output_pkt(struct packet *pkt)
 		assert(hdr->ip6.proto == IPPROTO_TCP);
 		assert(hdr->ip6.hop_limits == 255);
 		assert(hdr->ip6.payload_len == htons(pkt->mbuf.pkt_len - sizeof(*hdr)));
-		assert(memcmp(hdr->ip6.src_addr, CLIENT_IP6, 16) == 0);
-		assert(memcmp(hdr->ip6.dst_addr, SERVER_IP6, 16) == 0);
+		assert(memcmp(IP6_ADDR_BYTES(hdr->ip6.src_addr), CLIENT_IP6, 16) == 0);
+		assert(memcmp(IP6_ADDR_BYTES(hdr->ip6.dst_addr), SERVER_IP6, 16) == 0);
 
 		tcp = (struct rte_tcp_hdr *)((char *)hdr + 54);
 	} else {

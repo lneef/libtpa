@@ -298,8 +298,8 @@ static inline int init_net_hdr(struct eth_ip_hdr *hdr, struct rte_ether_hdr *eth
 		ip->vtc_flow = htonl(6 << 28);
 		ip->hop_limits = 255;
 		ip->proto = IPPROTO_TCP;
-		memcpy(ip->src_addr, local_ip, sizeof(struct tpa_ip));
-		memcpy(ip->dst_addr, remote_ip, sizeof(struct tpa_ip));
+		memcpy(IP6_ADDR_BYTES(ip->src_addr), local_ip, sizeof(struct tpa_ip));
+		memcpy(IP6_ADDR_BYTES(ip->dst_addr), remote_ip, sizeof(struct tpa_ip));
 
 		return sizeof(hdr->eth) + sizeof(hdr->ip6);
 	}
@@ -311,8 +311,8 @@ static inline void init_tpa_ip_from_pkt(struct packet *pkt, struct tpa_ip *src_i
 	if (pkt->flags & PKT_FLAG_IS_IPV6) {
 		struct rte_ipv6_hdr *ip6_hdr = packet_ip6_hdr(pkt);
 
-		tpa_ip_set_ipv6(src_ip, ip6_hdr->src_addr);
-		tpa_ip_set_ipv6(dst_ip, ip6_hdr->dst_addr);
+		tpa_ip_set_ipv6(src_ip, IP6_ADDR_BYTES(ip6_hdr->src_addr));
+		tpa_ip_set_ipv6(dst_ip, IP6_ADDR_BYTES(ip6_hdr->dst_addr));
 	} else {
 		struct rte_ipv4_hdr *ip4_hdr = packet_ip_hdr(pkt);
 

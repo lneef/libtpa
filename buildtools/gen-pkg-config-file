@@ -5,7 +5,7 @@
 # Author: Yuanhan Liu <liuyuanhan.131@bytedance.com>
 
 
-dpdk_ldflags=$(buildtools/dpdk-pkg-config --ldflags)
+dpdk_ldflags="$DPDK_LDFLAGS"
 
 gen_pkg_config_file()
 {

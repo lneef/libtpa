@@ -3,8 +3,8 @@
 # Author: Yuanhan Liu <liuyuanhan.131@bytedance.com>
 
 CFLAGS += -Wno-format-truncation
-CFLAGS += -I$(SRC_ROOT)/include -I$(RTE_SDK)/$(RTE_TARGET)/include
-CFLAGS += $(shell $(SRC_ROOT)/buildtools/dpdk-pkg-config --cflags)
+CFLAGS += -I$(SRC_ROOT)/include
+CFLAGS += $(DPDK_CFLAGS)
 
 LIBS  = $(OBJ_ROOT)/src/tpa-core.a
 LIBS += $(OBJ_ROOT)/lib/tpa-lib.a
@@ -18,13 +18,13 @@ LIBS += $(DPDK_LD_PATH)/librte_net.a
 LIBS += $(DPDK_LD_PATH)/librte_ring.a
 LIBS += $(DPDK_LD_PATH)/librte_hash.a
 LIBS += $(DPDK_LD_PATH)/librte_rcu.a
-
-ifneq ($(filter v20.11% v22.11%, $(DPDK_VERSION)),)
 LIBS += $(DPDK_LD_PATH)/librte_telemetry.a
-endif
+LIBS += $(DPDK_LD_PATH)/librte_log.a
+LIBS += $(DPDK_LD_PATH)/librte_argparse.a
+LIBS += $(DPDK_LD_PATH)/librte_meter.a
 
 LDFLAGS += -Wl,--whole-archive $(LIBS) -Wl,--no-whole-archive
-LDFLAGS += $(shell $(SRC_ROOT)/buildtools/dpdk-pkg-config --ldflags)
+LDFLAGS += $(DPDK_LDFLAGS)
 
 SRCS := tpad.c
 SRCS += tpad_sock.c
