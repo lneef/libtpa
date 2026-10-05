@@ -3,6 +3,7 @@
  * Copyright (c) 2021-2023, ByteDance Ltd. and/or its Affiliates
  * Author: Yuanhan Liu <liuyuanhan.131@bytedance.com>
  */
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/queue.h>
@@ -10,8 +11,11 @@
 #include <rte_cycles.h>
 #include <rte_spinlock.h>
 
+#include "api/tpa.h"
+#include "dev.h"
 #include "log.h"
 #include "port_alloc.h"
+#include "rss.h"
 #include "shell.h"
 #include "sock_table.h"
 #include "worker.h"
@@ -468,9 +472,21 @@ static struct port_block *worker_alloc_port_block(struct tpa_worker *worker,
   return block;
 }
 
-static uint16_t worker_refine_rss_port(struct tpa_worker *worker,
-                                       uint16_t rx_port, uint16_t tx_port,
-                                       struct tpa_ip *tx_ip) {}
+/*
+ * Hash the tuple as the NIC sees it on incoming traffic: src is the
+ * remote side, dst is us. The tag is XORed into the local (dst) port.
+ */
+static uint16_t worker_refine_rss_port(struct tpa_worker *worker, uint16_t port,
+                                       struct sock_key *key,
+                                       uint16_t local_port) {
+  int tag;
+  uint32_t hash = rss_hash_4tuple(
+      rss_default_key_adapted, tpa_ip_get_ipv4(&key->remote_ip),
+      key->remote_port, tpa_ip_get_ipv4(&key->local_ip), local_port);
+  tag = rss_get_tag_for_queue(dev.ports[port].rss_tags, hash, worker->queue);
+  assert(tag >= 0);
+  return (uint16_t)(local_port ^ tag);
+}
 
 static uint16_t port_bind_on_given_port(struct tpa_worker *worker,
                                         struct sock_key *key,
@@ -533,7 +549,16 @@ alloc:
 
 uint16_t port_bind_on_rss_port(struct tpa_worker *worker, struct sock_key *key,
                                struct tcp_sock *tsock) {
-  uint16_t base_port = (rte_rdtsc() & (UINT16_MAX - 1));
+  uint16_t port;
+  do {
+    port = worker_refine_rss_port(
+        worker, tsock->port_id, key,
+        key->local_port ? key->local_port : rte_rdtsc());
+    key->local_port = port;
+  } while (sock_table_lookup(&worker->sock_table, key));
+  if (sock_table_add(&worker->sock_table, key, tsock))
+    return -1;
+  return port;
 }
 
 /* returns 0 on failure */
@@ -546,17 +571,7 @@ uint16_t port_bind(struct tpa_worker *worker, struct sock_key *key,
 }
 
 int port_unbind(struct tpa_worker *worker, struct sock_key *key) {
-  struct port_block *block;
-
-  block = port_block_find(worker->port_blocks, worker->nr_port_block,
-                          key->local_port);
-  if (!block)
-    return -1;
-
   if (sock_table_del(&worker->sock_table, key) < 0)
     return -1;
-
-  port_block_put(block);
-
   return 0;
 }

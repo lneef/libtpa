@@ -48,14 +48,14 @@ LDFLAGS := $(EXTRA_LDFLAGS)
 LDFLAGS += -lpthread -ldl -lnuma -lpcap
 
 ifeq ($(BUILD_MODE),asan)
-CFLAGS  += -fsanitize=address
+CFLAGS  += -fsanitize=address 
 LDFLAGS += -fsanitize=address
 endif
 
 export EXTRA_CFLAGS
 export EXTRA_LDFLAGS
 export CFLAGS
-export LDFLAGS
+export LDFLAGS 
 
 # dpdk is taken from the system install (pkg-config libdpdk); we link
 # it statically, hence DPDK_LDFLAGS only reports the non-dpdk libs.

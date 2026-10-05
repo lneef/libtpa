@@ -26,6 +26,9 @@ uint32_t rss_hash_4tuple(const uint8_t *key, uint32_t src_ip, uint16_t src_port,
   int i;
   int shift;
 
+  src_port = htons(src_port);
+  dst_port = htons(dst_port);
+
   memcpy(&input[0], &src_ip, 4);
   memcpy(&input[4], &dst_ip, 4);
   memcpy(&input[8], &src_port, 2);
@@ -52,7 +55,7 @@ uint32_t rss_bucket(uint32_t hash, uint16_t reta_size) {
 }
 
 static uint32_t tag_hash(uint16_t port) {
-  return rss_hash_4tuple(rss_default_key_adapted, 0, 0, 0, htons(port));
+  return rss_hash_4tuple(rss_default_key_adapted, 0, 0, 0, port);
 }
 
 void rss_build_tag_table(uint16_t *table) {
@@ -76,12 +79,8 @@ void rss_build_tag_table(uint16_t *table) {
     assert(table[i] != RSS_TAG_NONE);
 }
 
-int rss_get_tag_for_queue(const uint16_t *table, uint32_t hash, uint16_t qid,
-                          uint16_t queue_cnt) {
+int rss_get_tag_for_queue(const uint16_t *table, uint32_t hash, uint16_t qid) {
   uint16_t slot;
-
-  assert(queue_cnt % 2 == 0);
-
   slot = rss_bucket(hash, RSS_TAG_TABLE_SIZE) ^ qid;
   if (table[slot] == RSS_TAG_NONE)
     return -1;

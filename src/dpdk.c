@@ -5,6 +5,8 @@
  */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#include "rss.h"
+#include <stdint.h>
 #endif
 #include <numa.h>
 #include <pthread.h>
@@ -228,6 +230,12 @@ static void dpdk_port_init(uint16_t port, int nr_queue) {
   port_conf.rxmode.offloads = RX_OFFLOAD & dev_info.rx_offload_capa;
   port_conf.txmode.offloads = TX_OFFLOAD & dev_info.tx_offload_capa;
   port_conf.lpbk_mode = 1;
+  if (nr_queue > 1) {
+    port_conf.rxmode.mq_mode = RTE_ETH_MQ_RX_RSS;
+    port_conf.rx_adv_conf.rss_conf.rss_key = (uint8_t *)rss_default_key_adapted;
+    port_conf.rx_adv_conf.rss_conf.rss_key_len =
+        sizeof(rss_default_key_adapted);
+  }
 
   LOG("init port %hu: nr_queue=%hu rx_offload=%lu tx_offload=%lu", port,
       nr_queue, port_conf.rxmode.offloads, port_conf.txmode.offloads);
