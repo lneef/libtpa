@@ -15,6 +15,7 @@ uint32_t rss_hash_4tuple(const uint8_t *key, uint32_t src_ip, uint16_t src_port,
                          uint32_t dst_ip, uint16_t dst_port);
 uint32_t rss_bucket(uint32_t hash, uint16_t reta_size);
 void rss_build_tag_table(uint16_t *table);
-int rss_get_tag_for_queue(const uint16_t *table, uint32_t hash, uint16_t qid);
+int rss_get_tag_for_queue(const uint16_t *table, uint32_t hash, uint16_t qid,
+                          uint16_t queue_cnt);
 
 #endif

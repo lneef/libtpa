@@ -79,9 +79,31 @@ void rss_build_tag_table(uint16_t *table) {
     assert(table[i] != RSS_TAG_NONE);
 }
 
-int rss_get_tag_for_queue(const uint16_t *table, uint32_t hash, uint16_t qid) {
+static uint16_t nearest_queue_bucket(uint16_t bucket, uint16_t qid,
+                                     uint16_t queue_cnt) {
+  uint16_t lower;
+  uint16_t upper;
+
+  if (bucket <= qid)
+    return qid;
+
+  lower = bucket - (bucket - qid) % queue_cnt;
+  upper = lower + queue_cnt;
+  if (upper >= RSS_TAG_TABLE_SIZE || bucket - lower <= upper - bucket)
+    return lower;
+
+  return upper;
+}
+
+int rss_get_tag_for_queue(const uint16_t *table, uint32_t hash, uint16_t qid,
+                          uint16_t queue_cnt) {
+  uint16_t bucket;
   uint16_t slot;
-  slot = rss_bucket(hash, RSS_TAG_TABLE_SIZE) ^ qid;
+
+  assert(queue_cnt > 0 && queue_cnt <= RSS_TAG_TABLE_SIZE && qid < queue_cnt);
+
+  bucket = rss_bucket(hash, RSS_TAG_TABLE_SIZE);
+  slot = bucket ^ nearest_queue_bucket(bucket, qid, queue_cnt);
   if (table[slot] == RSS_TAG_NONE)
     return -1;
 
