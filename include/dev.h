@@ -17,7 +17,7 @@
 #include "rss.h"
 
 #define DEFAULT_MTU 1500
-#define DEFAULT_MAX_MTU 9216
+#define JUMBO_MTU 9001
 #define PKT_MAX_HDR_LEN 128
 
 #define BATCH_SIZE 64

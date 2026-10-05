@@ -3,12 +3,14 @@
  * Copyright (c) 2021-2022, ByteDance Ltd. and/or its Affiliates
  * Author: Yuanhan Liu <liuyuanhan.131@bytedance.com>
  */
+#include <rte_ether.h>
 #include <stdio.h>
 #include <sys/mman.h>
 
 #include "api/tpa.h"
 
 #include "archive.h"
+#include "dev.h"
 #include "log.h"
 #include "mem_file.h"
 #include "neigh.h"
@@ -70,7 +72,8 @@ static struct cfg_spec tcp_cfg_specs[] = {
         .type = CFG_TYPE_UINT,
         .data = &tcp_cfg.usr_snd_mss,
         .flags = CFG_FLAG_HAS_MAX | CFG_FLAG_RDONLY,
-        .max = DEFAULT_MAX_MTU - PKT_MAX_HDR_LEN,
+        .max = (JUMBO_MTU + RTE_ETHER_HDR_LEN + RTE_ETHER_CRC_LEN) -
+               PKT_MAX_HDR_LEN,
     },
     {
         .name = "tcp.time_wait",

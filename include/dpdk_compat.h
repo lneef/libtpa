@@ -70,7 +70,7 @@ static inline struct rte_device *eth_device_get(uint16_t port)
 
 static inline void dpdk_enable_jumbo_frame(struct rte_eth_conf *conf, uint32_t max_rx_pkt_len)
 {
-	conf->rxmode.mtu = max_rx_pkt_len;
+	conf->rxmode.mtu = max_rx_pkt_len - RTE_ETHER_HDR_LEN - RTE_ETHER_CRC_LEN;
 }
 
 #else

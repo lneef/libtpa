@@ -365,14 +365,10 @@ static int get_max_rx_pkt_len(void) {
   int hw_rx_capa;
 
   hw_rx_capa = dev.mtu + RTE_ETHER_HDR_LEN + RTE_ETHER_CRC_LEN;
-  max_rx_pkt =
-      RTE_MAX(RTE_ETHER_MAX_LEN, tcp_cfg.usr_snd_mss + PKT_MAX_HDR_LEN);
-  if (max_rx_pkt > hw_rx_capa) {
-    LOG_WARN("warning: set max rx pkt len (%d) > hw capa (%d)", max_rx_pkt,
-             hw_rx_capa);
-
-    max_rx_pkt = RTE_MAX(RTE_ETHER_MAX_LEN, hw_rx_capa);
-    /* reclac usr_snd_mss by hw rx capa */
+  max_rx_pkt = RTE_MAX(RTE_ETHER_MAX_LEN, hw_rx_capa);
+  if (tcp_cfg.usr_snd_mss + PKT_MAX_HDR_LEN > hw_rx_capa) {
+    LOG_WARN("warning: set max rx pkt len (%d) > hw capa (%d)",
+             tcp_cfg.usr_snd_mss + PKT_MAX_HDR_LEN, hw_rx_capa);
     tcp_cfg.usr_snd_mss = RTE_MAX(0, hw_rx_capa - PKT_MAX_HDR_LEN);
   }
 

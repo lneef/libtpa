@@ -1055,7 +1055,7 @@ uint16_t calc_snd_mss(const struct tcp_sock *tsock, int has_ts, int passive, uin
 		snd_mss = tcp_cfg.usr_snd_mss + (has_ts ? TCP_OPT_TS_SPACE : 0);
 	} else {
 		ip_hdr_len = tsock->is_ipv6 ? sizeof(struct rte_ipv6_hdr) : sizeof(struct rte_ipv4_hdr);
-		snd_mss = DEFAULT_MTU - ip_hdr_len - sizeof(struct rte_tcp_hdr);
+		snd_mss = dev.mtu - ip_hdr_len - sizeof(struct rte_tcp_hdr);
 		if (snd_mss < 0)
 			snd_mss = TCP_MSS_DEFAULT;
 	}
