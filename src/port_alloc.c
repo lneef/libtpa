@@ -9,6 +9,7 @@
 #include <sys/queue.h>
 
 #include <rte_cycles.h>
+#include <rte_random.h>
 #include <rte_spinlock.h>
 
 #include "api/tpa.h"
@@ -483,7 +484,8 @@ static uint16_t worker_refine_rss_port(struct tpa_worker *worker, uint16_t port,
   uint32_t hash = rss_hash_4tuple(
       rss_default_key_adapted, tpa_ip_get_ipv4(&key->remote_ip),
       key->remote_port, tpa_ip_get_ipv4(&key->local_ip), local_port);
-  tag = rss_get_tag_for_queue(dev.ports[port].rss_tags, hash, worker->queue);
+  tag = rss_get_tag_for_queue(dev.ports[port].rss_tags, hash, worker->queue,
+                              tpa_cfg.nr_worker);
   assert(tag >= 0);
   return (uint16_t)(local_port ^ tag);
 }
@@ -547,18 +549,32 @@ alloc:
   return port;
 }
 
+/* returns 0 on failure */
 uint16_t port_bind_on_rss_port(struct tpa_worker *worker, struct sock_key *key,
                                struct tcp_sock *tsock) {
   uint16_t port;
-  do {
-    port = worker_refine_rss_port(
-        worker, tsock->port_id, key,
-        key->local_port ? key->local_port : rte_rdtsc());
+  int nr_try = 0;
+
+  /*
+   * a given local port can't be steered to our queue; always pick one.
+   * The port is fully owned by DPDK, so the whole port space is ours.
+   */
+  while (nr_try++ < UINT16_MAX) {
+    port = (rte_rand() % UINT16_MAX) + 1;
+    port = worker_refine_rss_port(worker, tsock->port_id, key, port);
+    if (port == 0)
+      continue;
+
     key->local_port = port;
-  } while (sock_table_lookup(&worker->sock_table, key));
-  if (sock_table_add(&worker->sock_table, key, tsock))
-    return -1;
-  return port;
+    if (sock_table_lookup(&worker->sock_table, key))
+      continue;
+
+    if (sock_table_add(&worker->sock_table, key, tsock))
+      return 0;
+    return port;
+  }
+
+  return 0;
 }
 
 /* returns 0 on failure */
