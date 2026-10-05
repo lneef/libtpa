@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "rss.h"
 
@@ -53,6 +54,7 @@ static void test_tag_steers_rx_port_to_queue(void) {
   uint16_t queue_cnt;
   uint16_t qid;
   uint16_t port;
+  uint32_t bucket;
   uint32_t h;
   int tag;
   int i;
@@ -61,18 +63,21 @@ static void test_tag_steers_rx_port_to_queue(void) {
 
   rss_build_tag_table(table);
 
-  for (queue_cnt = 2; queue_cnt <= 8; queue_cnt += 2) {
+  for (queue_cnt = 1; queue_cnt <= 8; queue_cnt++) {
     for (i = 0; i < sizeof(ports) / sizeof(ports[0]); i++) {
       port = ports[i];
       for (qid = 0; qid < queue_cnt; qid++) {
         h = rss_hash_4tuple(rss_default_key_adapted, remote_ip,
                             remote_port, local_ip, port);
-        tag = rss_get_tag_for_queue(table, h, qid);
+        bucket = rss_bucket(h, RETA_SIZE);
+        tag = rss_get_tag_for_queue(table, h, qid, queue_cnt);
         assert(tag >= 0);
 
         h = rss_hash_4tuple(rss_default_key_adapted, remote_ip,
                             remote_port, local_ip, port ^ tag);
         assert(rss_bucket(h, RETA_SIZE) % queue_cnt == qid);
+        /* the nearest bucket owned by qid */
+        assert(abs((int)rss_bucket(h, RETA_SIZE) - (int)bucket) < queue_cnt);
       }
     }
   }
