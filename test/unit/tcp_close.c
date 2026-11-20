@@ -332,18 +332,13 @@ static void test_tcp_close_rst_at_close(void)
 {
 	struct tcp_sock *tsock;
 	struct packet *pkt;
-	int sid;
 
 	printf("testing tcp_close [rst at close] ...\n");
 
 	tsock = ut_tcp_connect();
-	sid = tsock->sid;
 	ut_close(tsock, CLOSE_TYPE_4WAY);
 
 	pkt = ut_inject_rst_packet(tsock); {
-		pkt->mbuf.ol_flags |= PKT_RX_FDIR_ID;
-		pkt->mbuf.hash.fdir.hi = make_flow_mark(0, sid);
-
 		/*
 		 * simulate tsock reset (this sock is re-allocated)
 		 */

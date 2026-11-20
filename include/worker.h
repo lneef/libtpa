@@ -59,8 +59,6 @@ struct tpa_worker {
 
 	struct flex_fifo *neigh_flush_queue;
 
-	int nr_port_block;
-	struct port_block *port_blocks[MAX_PORT_BLOCK_PER_WORKER];
 	struct sock_table sock_table;
 
 	uint64_t stats_base[STATS_MAX];

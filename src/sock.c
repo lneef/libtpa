@@ -194,12 +194,6 @@ static struct cfg_spec tcp_cfg_specs[] = {
         .min = 1,
         .max = UINT32_MAX,
     },
-    {
-        .name = "tcp.local_port_range",
-        .type = CFG_TYPE_STR, /* XXX: a new type? */
-        .set = local_port_range_set,
-        .get = local_port_range_get,
-    },
 };
 
 struct sock_ctrl *sock_ctrl;
@@ -359,7 +353,6 @@ void tsock_trace_uninit(struct tcp_sock *tsock) {
 #define _COPY_OPTS(x) short_opts->x = opts->x
 static void convert_sock_opts(const struct tpa_sock_opts *opts,
                               struct tpa_sock_opts_short *short_opts) {
-  _COPY_OPTS(listen_scaling);
   _COPY_OPTS(local_port);
   _COPY_OPTS(data);
 }
@@ -416,7 +409,6 @@ static int tsock_init(struct tcp_sock *tsock, int sid,
   rte_spinlock_init(&tsock->lock);
 
   TAILQ_INIT(&tsock->rcv_ooo_queue);
-  offload_list_init(&tsock->offload_list);
 
   FLEX_FIFO_NODE_INIT(&tsock->output_node);
   FLEX_FIFO_NODE_INIT(&tsock->event_node);
@@ -526,7 +518,6 @@ int tsock_free(struct tcp_sock *tsock) {
   if (tsock->local_port) {
     /* XXX: it's a bit ugly */
     if (tsock->listen_sock) {
-      port_free(ntohs(tsock->local_port));
       remove_listen_sock(tsock);
     } else if (tsock->passive_connection) {
       remove_passive_sock(tsock);
@@ -737,7 +728,7 @@ int tpa_connect_to(const char *server, uint16_t port,
   LOG("connecting to: %d, %s:%u...", tsock->sid, server, port);
 
   /* needed by tsock_bind to pick the port's rss tag table */
-  tsock->port_id = dev_port_id_get();
+  tsock->port_id = 0;
 
   if (tsock_bind(tsock, &remote_ip, port) < 0)
     goto free_tsock;
@@ -799,15 +790,10 @@ int tpa_listen_on(const char *local, uint16_t port,
   }
 
   memset(&remote_ip, 0, sizeof(remote_ip));
-  if (port_alloc(port) == 0) {
-    errno = EADDRINUSE;
-    return -1;
-  }
 
   tsock = sock_create(opts, !tpa_ip_is_ipv4(&local_ip));
   if (!tsock) {
     errno = ENFILE;
-    port_free(port);
     return -1;
   }
 
@@ -821,8 +807,15 @@ int tpa_listen_on(const char *local, uint16_t port,
   tsock->listen_sock = 1;
 
   tsock_trace_base_init(tsock);
-  add_listen_sock(tsock);
-  tsock->port_id = dev_port_id_get();
+  tsock->port_id = 0;
+
+  if (add_listen_sock(tsock) < 0) {
+    /* the port belongs to another listen sock; don't let tsock_free drop it */
+    tsock->local_port = 0;
+    errno = EADDRINUSE;
+    tsock_free(tsock);
+    return -1;
+  }
 
   return tsock->sid;
 }
@@ -1003,8 +996,6 @@ int tsock_lookup_slowpath(struct tpa_worker *worker, struct packet *pkt,
   if (tsock->sid < 0)
     return -WARN_STALE_PKT_TUPLE_MISMATCH;
 
-  /* XXX: for bypassing WARN_STALE_PKT_WORKER_MISMATCH check */
-  pkt->wid = worker->id;
   *tsock_ptr = tsock;
 
   return 0;
@@ -1061,7 +1052,6 @@ static void set_drop_ooo_threshold(void) {
 int sock_init(void) {
   int i;
 
-  port_alloc_init();
 
   sock_table_init(&listen_sock_table);
 

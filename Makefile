@@ -24,13 +24,16 @@ test tools app: src lib
 tpad: tools lib
 tools app: static
 
+# the mlx/mana PMDs need the rdma libs; they are of no use here
+DPDK_LIBS := $(filter-out %_mlx4.a %_mlx5.a %_mana.a,$(wildcard $(DPDK_LD_PATH)/librte_*.a))
+
 $(LIBTPA_SO): src lib
 	$(Q)echo "  LD $(notdir $@)"
 	$(Q)$(CC) -shared -o $@ -L$(DPDK_LD_PATH)			\
 	     -Wl,--whole-archive					\
 	     $(OBJ_ROOT)/src/tpa-core.a				\
 	     $(OBJ_ROOT)/lib/tpa-lib.a				\
-	     $(DPDK_LD_PATH)/librte_*.a					\
+	     $(DPDK_LIBS)						\
 	     -Wl,--no-whole-archive					\
 	     $(LDFLAGS)
 	$(Q)bash ./buildtools/gen-pkg-config-file
@@ -42,7 +45,7 @@ static: src lib
 	$(Q)echo create $(LIBTPA_A)                >  /tmp/tpa.mri
 	$(Q)echo addlib $(OBJ_ROOT)/src/tpa-core.a >> /tmp/tpa.mri
 	$(Q)echo addlib $(OBJ_ROOT)/lib/tpa-lib.a  >> /tmp/tpa.mri
-	$(Q)for i in $(DPDK_LD_PATH)/librte_*.a; do \
+	$(Q)for i in $(DPDK_LIBS); do \
 		echo addlib $$i			   >> /tmp/tpa.mri; \
 	done
 	$(Q)echo save 				   >> /tmp/tpa.mri

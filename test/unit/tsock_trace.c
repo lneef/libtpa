@@ -36,19 +36,14 @@ static void test_tsock_trace_after_close(void)
 {
 	struct tcp_sock *tsock;
 	struct packet *pkt;
-	int sid;
 
 	printf("testing tsock_trace [after close] ...\n");
 
 	tsock = ut_tcp_connect();
-	sid = tsock->sid;
 
 	ut_close(tsock, CLOSE_TYPE_4WAY);
 
 	pkt = ut_inject_data_packet(tsock, tsock->rcv_nxt, 10); {
-		pkt->mbuf.ol_flags |= PKT_RX_FDIR_ID;
-		pkt->mbuf.hash.fdir.hi = make_flow_mark(0, sid);
-
 		ut_tcp_input_one(tsock, pkt);
 	}
 }

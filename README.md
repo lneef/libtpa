@@ -37,24 +37,17 @@ There is a huge advantage about that. If libtpa crashes, except the
 application accelerated by libtpa is affected, none other workloads
 would be affected.
 
-Having said that, it requires some special support from NIC. Section
-Requirements gives a bit more information about that.
-
 # Requirements
 
-Due to the novel design described above (to just accelerate some specific
-TCP connections), libtpa requires [flow bifurcation](https://doc.dpdk.org/guides/howto/flow_bifurcation.html) support from NIC.
+Libtpa takes over a whole NIC port with DPDK: the port is bound to a DPDK
+compatible driver (say `vfio-pci`) and is no longer visible to the kernel.
+Incoming connections are steered to the libtpa workers by the NIC RSS only;
+no flow rules (`rte_flow`) are needed. This is the model cloud NICs offer,
+and AWS ENA is the NIC libtpa is developed and tested with.
 
-Most NICs have flow bifurcation support with the help of SR-IOV.
-But they require some internal DPDK/Linux patches (or even firmwares)
-to satisfy the libtpa needs.
-
-On the other hand, Mellanox NIC has native flow bifurcation support
-that doesn't require SR-IOV. More importantly, it doesn't require any
-internal stuff. Libtpa works well with Mellanox NIC just with the
-upstream DPDK.
-
-Therefore, libtpa currently only supports Mellanox NIC.
+The network config (ip, mask, gateway, mac) and the neighbor entries can't
+be derived from a kernel netdev, so they have to be given explicitly. See
+the user guide for details.
 
 # What's Next
 

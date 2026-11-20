@@ -238,7 +238,6 @@ int tpa_init(int nr_worker)
 
 	neigh_init();
 
-	offload_init();
 	sock_init();
 
 	pktfuzz_init();
@@ -257,76 +256,21 @@ int tpa_init(int nr_worker)
 	return 0;
 }
 
+/*
+ * External memory needs the buffer to be DMA mapped with a real IOVA,
+ * which is not implemented: fail instead of pretending it worked.
+ */
 int tpa_extmem_register(void *virt_addr, size_t len, uint64_t *phys_addrs,
 			     int nr_page, size_t page_size)
 {
-#ifdef NIC_MLNX
-	uint16_t port;
-	int err;
-
-	err = rte_extmem_register(virt_addr, len, (rte_iova_t *)phys_addrs,
-				  nr_page, page_size);
-	if (err) {
-		LOG_ERR("failed to register extmem: va=%p len=%zd page_size=%zd nr_page=%d",
-			virt_addr, len, page_size, nr_page);
-		return err;
-	}
-
-	RTE_ETH_FOREACH_DEV(port) {
-		struct rte_device *device = eth_device_get(port);
-		if (device == NULL) {
-			LOG_ERR("failed to get eth device when register extmem");
-			return -1;
-		}
-
-		err = rte_dev_dma_map(device, virt_addr, 0, len);
-		if (err) {
-			LOG_ERR("failed to map DMA for port %hu: va=%p len=%zd", port, virt_addr, len);
-			rte_extmem_unregister(virt_addr, len);
-
-			return err;
-		}
-	}
-
-	LOG("registered extmem: va=%p len=%zd page_size=%zd nr_page=%d",
-	    virt_addr, len, page_size, nr_page);
-#endif
-
-	return 0;
+	errno = ENOTSUP;
+	return -1;
 }
 
 int tpa_extmem_unregister(void *virt_addr, size_t len)
 {
-#ifdef NIC_MLNX
-	uint16_t port;
-	int err;
-
-	/*
-	 * TODO: we need make sure no inflight packet belong to
-	 * this memory region exist.
-	 */
-	RTE_ETH_FOREACH_DEV(port) {
-		struct rte_device *device = eth_device_get(port);
-		if (device == NULL) {
-			LOG_ERR("failed to get eth device when unregister extmem");
-			return -1;
-		}
-
-		err = rte_dev_dma_unmap(device, virt_addr, 0, len);
-		if (err)
-			LOG_ERR("failed to unmap DMA for port %hu: va=%p len=%zd", port, virt_addr, len);
-	}
-
-	err = rte_extmem_unregister(virt_addr, len);
-	if (err) {
-		LOG_ERR("failed to unregister extmem: va=%p len=%zd", virt_addr, len);
-		return err;
-	}
-
-	LOG("unregistered extmem: va=%p len=%zd", virt_addr, len);
-#endif
-
-	return 0;
+	errno = ENOTSUP;
+	return -1;
 }
 
 struct get_memsegs_ctx {

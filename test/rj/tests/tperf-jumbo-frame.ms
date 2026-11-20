@@ -19,28 +19,10 @@ end
 
 #include tperf-common.msh
 
-mtu_cfg()
-{
-	eth=$(tpa run | grep net | sed 's/.*name=//' | sed 's/;.*//')
-	ip link set $eth mtu $mtu
-
-	pci=$(ethtool -i $eth | grep bus | awk '{print $2}')
-	lspci -D | grep $pci | grep -q 'Virtual Function' && {
-		# TODO: we need double confirm it with Mellanox
-		if [ $client_mss -eq 8192 ] && [ $server_mss -eq 8192 ]; then
-			echo "warn: mangle mss from 8k to 4k to bypass mlnx VF failure"
-			client_mss=4096
-			server_mss=4096
-		fi
-	}
-}
-
 cfg()
 {
-	mtu_cfg
-
-	SERVER_TPA_CFG="tcp { usr_snd_mss=$client_mss; }"
-	CLIENT_TPA_CFG="tcp { usr_snd_mss=$server_mss; }"
+	SERVER_TPA_CFG="net { mtu=$mtu; } tcp { usr_snd_mss=$client_mss; }"
+	CLIENT_TPA_CFG="net { mtu=$mtu; } tcp { usr_snd_mss=$server_mss; }"
 }
 
 verify()

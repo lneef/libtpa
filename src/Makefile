@@ -27,7 +27,6 @@ SRCS += port_alloc.c
 SRCS += rss.c
 
 SRCS += sock.c
-SRCS += offload.c
 SRCS += dev.c
 SRCS += dpdk.c
 SRCS += tpa.c

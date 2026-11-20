@@ -51,7 +51,6 @@
 #define TCP_OPT_TYPE_UNKNOWN	100
 #define TCP_OPT_LEN_UNKNOWN	2
 
-#define INVALID_FLOW_ID		(0xffffffff)
 
 enum {
 	CLOSE_TYPE_4WAY = 1,
@@ -62,8 +61,6 @@ enum {
 extern struct tpa_worker *worker;
 extern int ut_with_timer;
 extern int skip_arp;
-extern uint16_t ut_port_min;
-extern uint16_t ut_port_max;
 
 #define TEST_ZCOPY		1
 #define TEST_ZCOPY_FALLBACK	2
@@ -92,7 +89,6 @@ struct ut_test_opts {
 	int with_tso;
 	int with_cksum;
 	int with_ipv6;
-	int with_flow_mark;
 	int with_sock_trace;
 
 	int silent;
@@ -118,7 +114,7 @@ void ut_tcp_set_hdr(struct packet *pkt, uint32_t seq, uint32_t ack, uint16_t fla
 int ut_tcp_set_opt(struct rte_tcp_hdr *tcp, int off, int opt, uint32_t val);
 void ut_ip_set_hdr(struct packet *pkt, uint16_t tcp_opt_len, uint16_t tcp_payload_len);
 
-struct packet *ut_make_packet(int is_reply, uint16_t client_port, uint32_t flow_id);
+struct packet *ut_make_packet(int is_reply, uint16_t client_port);
 struct packet *make_synack_packet(struct tcp_sock *tsock, int has_ts, int mss, int wscale, int sack);
 struct packet *make_arp_rsp_pkt(uint32_t rsp_ip, uint8_t *mac);
 struct packet *make_ndp_rsp_pkt(struct tpa_ip *rsp_ip, uint8_t *mac);

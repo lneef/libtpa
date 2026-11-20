@@ -7,7 +7,6 @@
 #define _DEV_H_
 
 #include <netinet/in.h>
-#include <pthread.h>
 
 #include <rte_ethdev.h>
 #include <rte_ether.h>
@@ -21,12 +20,13 @@
 #define PKT_MAX_HDR_LEN 128
 
 #define BATCH_SIZE 64
+#define RX_BURST_SIZE 32
 #define TXQ_BUF_SIZE 4096
 
 #define DEV_RXQ_SIZE NR_RX_DESC
 #define DEV_RXQ_MASK (DEV_RXQ_SIZE - 1)
 
-#define MAX_PORT_NR 2
+#define MAX_PORT_NR 1
 
 struct dev_ip {
   int prefixlen;
@@ -47,35 +47,15 @@ struct dev_rxq {
 
 #define DEV_INFO_LEN 128
 
-enum {
-  DEV_LINK_DOWN,
-  DEV_LINK_UP,
-};
-
-enum {
-  DEV_NIC_MLNX = 1,
-  DEV_NIC_UNKNOWN,
-};
-
-struct nic_spec {
-  char *name;
-  int type;
-  uint32_t rx_burst_cap;
-};
-
 struct dev_port {
   int port_id;
-  int state;
 
   uint32_t nr_rx_burst;
 
   struct dev_txq *txq;
   struct dev_rxq *rxq;
 
-  char name[DEV_INFO_LEN];
   char device_id[DEV_INFO_LEN];
-
-  struct nic_spec *nic_spec;
 
   uint16_t rss_tags[RSS_TAG_TABLE_SIZE];
 } __rte_cache_aligned;
@@ -94,12 +74,6 @@ struct net_dev {
   struct dev_port ports[MAX_PORT_NR];
   uint16_t nr_port;
 
-  pthread_spinlock_t lock;
-  uint64_t all_port_down;
-
-  pthread_mutex_t mutex;
-
-  char name[32];
   uint16_t mtu;
 };
 
@@ -109,13 +83,6 @@ int net_dev_init_early(void);
 int net_dev_init(void);
 
 int dev_port_init(void);
-
-static inline int get_port_nic_type(uint16_t port) {
-  if (port >= dev.nr_port)
-    return -1;
-
-  return dev.ports[port].nic_spec->type;
-}
 
 static inline struct dev_txq *dev_port_txq(uint16_t port_id,
                                            uint16_t queue_id) {
@@ -135,27 +102,6 @@ static inline int dev_port_txq_free_count(uint16_t port_id, uint16_t queue_id) {
   return TXQ_BUF_SIZE - dev_port_txq(port_id, queue_id)->nr_pkt;
 }
 
-static inline uint16_t dev_port_id_get(void) {
-  static uint16_t idx = 0;
-  uint16_t i;
-  uint16_t ret;
-
-  pthread_spin_lock(&dev.lock);
-  for (i = 0; i < dev.nr_port; i++) {
-    ret = (idx++) % dev.nr_port;
-    if (dev.ports[ret].state == DEV_LINK_UP) {
-      pthread_spin_unlock(&dev.lock);
-      return ret;
-    }
-  }
-  pthread_spin_unlock(&dev.lock);
-
-  __sync_fetch_and_add_8(&dev.all_port_down, 1);
-
-  /* return port 0 when every ports of cur dev is down */
-  return dev.ports[0].port_id;
-}
-
 static inline void dev_port_txq_flush(uint16_t port_id, uint16_t queue_id) {
   struct dev_txq *txq = dev_port_txq(port_id, queue_id);
   uint16_t count;
@@ -172,8 +118,6 @@ static inline void dev_port_txq_flush(uint16_t port_id, uint16_t queue_id) {
   count = RTE_MIN(txq->nr_pkt, (uint16_t)BATCH_SIZE);
 
   debug_assert(port_id < dev.nr_port);
-  if (unlikely(dev.ports[port_id].state != DEV_LINK_UP))
-    port_id = dev_port_id_get();
 
   count =
       rte_eth_tx_burst(port_id, queue_id, (struct rte_mbuf **)txq->pkts, count);
@@ -281,8 +225,5 @@ static inline void dev_rxq_recv(uint16_t queue_id) {
     dev_port_rxq_recv(i, queue_id);
   }
 }
-
-int parse_bonding_proc_file(const char *path);
-struct nic_spec *nic_spec_find_by_type(int type);
 
 #endif

@@ -38,7 +38,6 @@ BINS += tsock_txq
 BINS += cfg
 BINS += ipv6
 BINS += misc
-BINS += dev
 BINS += ctrl
 BINS += flex_fifo
 BINS += archive
@@ -48,8 +47,6 @@ BINS += rss
 BINS += arp
 BINS += garp
 BINS += ndp
-
-BINS += sock-offload
 
 BINS += tcp_connect
 BINS += tcp_connect_retry

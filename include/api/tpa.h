@@ -48,16 +48,7 @@ struct tpa_iovec {
  * tpa_connect_to and tpa_connect_to.
  */
 struct tpa_sock_opts {
-	/*
-	 * When @listen_scaling is set to
-	 * - 0: passive connections will be only distributed to the worker
-	 *      where this listen sock has been bound to.
-	 * - 1: passive connections will be distributed to all workers.
-	 *
-	 * tpa_listen_on only.
-	 */
-	uint64_t listen_scaling:1;
-	uint64_t bits_reserved:63;
+	uint64_t bits_reserved;
 
 	/*
 	 * A private data set by user for listen sock. It could be

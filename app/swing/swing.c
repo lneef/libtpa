@@ -55,7 +55,6 @@ static void zero_copy_write_done(void *iov_base, void *iov_param)
 #define PAGE_SIZE		4096
 #define EXTBUF_SIZE		(1*PAGE_SIZE)
 
-/* Note that it's basically a Mellanox only thing. */
 static void *zwrite_extbuf_alloc(size_t size)
 {
 	static void *buf;

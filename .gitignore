@@ -7,3 +7,6 @@ version.h
 build-info.h
 core
 build
+.claude/
+compile_commands.json
+infra/

@@ -75,8 +75,6 @@ int worker_init(uint32_t nr_worker) {
   PANIC_ON(workers == NULL, "failed to allocate %u workers", nr_worker);
 
   tpa_cfg.nr_worker = nr_worker;
-  tpa_cfg.nr_worker_shift = log2_ceil(nr_worker);
-  tpa_cfg.nr_worker_mask = (1 << tpa_cfg.nr_worker_shift) - 1;
 
   memset(workers, 0, size);
   for (i = 0; i < nr_worker; i++) {

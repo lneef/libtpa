@@ -25,9 +25,6 @@ tcp_connect:
   - -T 0
   - -T 1
 tcp_input_bench:
-  flow_mark:
-  - -F 0
-  - -F 1
   sock_trace:
   - -S 0
   - -S 1
@@ -170,9 +167,6 @@ tcp_zwritev:
   - -6 0
   - -6 1
 tcp_listen:
-  flow_mark:
-  - -F 0
-  - -F 1
   ipv6:
   - -6 0
   - -6 1

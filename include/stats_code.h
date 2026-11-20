@@ -51,9 +51,6 @@ STATS(ERR_INVALID_TCP_OPT_LEN, "invalid tcp option len")
 
 STATS(ERR_DEV_TXQ_FULL, "net device txq is full")
 
-STATS(ERR_FLOW_MARK_INVALID, "invalid flow mark")
-STATS(WARN_MISSING_FLOW_MARK, "missing flow mark")
-STATS(HAS_FLOW_MARK, "has flow mark")
 
 STATS(ERR_CONN_REFUSED, "connection refused")
 
@@ -103,8 +100,7 @@ STATS(WARN_NEIGH_CHANGED, "number of neigh entry changed")
 STATS(ERR_WRITE_TOO_MANY_IOV, "nr_iov provided by zwritev is too big")
 STATS(ERR_WRITE_TOO_BIG_BUFF, "probably one of iov has too big buf size")
 
-STATS(WARN_STALE_PKT_TUPLE_MISMATCH,  "pkts recv-ed that doesn't match the tsock tuple after offload flow destroy")
-STATS(WARN_STALE_PKT_WORKER_MISMATCH, "pkts recv-ed that doesn't match the tsock's assigned worker after offload flow destroy")
+STATS(WARN_STALE_PKT_TUPLE_MISMATCH,  "pkts recv-ed for a tsock that has been freed")
 
 STATS(WARN_RST_RECV, "number of rst pkts received")
 
@@ -116,7 +112,6 @@ STATS(ERR_PKT_HAS_IPV6_OPT, "number of pkts have ipv6 options")
 STATS(ZERO_WND_PROBE, "number of zero wnd probe sent")
 STATS(WND_UPDATE, "number of wnd update")
 
-STATS(SOCK_OFFLOAD_FAILURE, "failed to offload a connection")
 
 STATS(WARN_ACK_AT_LISTEN, "number of pkts have ACK set at LISTEN state")
 STATS(ERR_TOO_MANY_SOCKS, "too many socks created")
@@ -129,7 +124,6 @@ STATS(PKT_RECV_MERGE, "number of incomping pkts merged")
 STATS(TCP_KEEPALIVE_PROBE, "number of tcp keepalive probes")
 STATS(TCP_KEEPALIVE_TIME_OUT, "tcp keepalive probe times out")
 
-STATS(PORT_BLOCK_OFFLOAD_FAILURE, "failed to offload a port block")
 
 STATS(OOO_MBUF_DROPPED, "number of out of order mbuf segments dropped")
 STATS(ERR_TCP_SACK_INTERSECT, "number of tcp sack opts that have sack intersection")

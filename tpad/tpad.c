@@ -87,11 +87,10 @@ int main(int argc, char **argv)
 
 	tpad.sock_file = getenv("TPAD_SOCK_FILE");
 	tpad.sock_trace_file = getenv("TPAD_SOCK_TRACE_FILE");
-	tpad.eth_dev = getenv("TPAD_DEV_NAME");
 	tpad.archive_dir = getenv("TPAD_ARCHIVE_DIR");
 
 	if (tpad.sock_file == NULL || tpad.sock_trace_file == NULL ||
-	    tpad.eth_dev == NULL || tpad.archive_dir == NULL) {
+	    tpad.archive_dir == NULL) {
 		/* ditto: be vague here */
 		fprintf(stderr, "fatal: missing mandatory env\n");
 		return -1;
@@ -105,7 +104,7 @@ int main(int argc, char **argv)
 
 	fd = connect_to_tpad(tpad.name);
 	if (wait_for_tpa_app(fd) == 0) {
-		sock_termination();
+		sock_file_archive();
 		sock_archive();
 	}
 

@@ -16,7 +16,7 @@ static struct packet *inject_syn_packet(struct tcp_sock *tsock)
 
 	isn = isn_gen(&tsock->local_ip, &tsock->remote_ip, tsock->local_port, tsock->remote_port);
 
-	pkt = ut_make_packet(1, tsock->local_port, tsock->sid);
+	pkt = ut_make_packet(1, tsock->local_port);
 	ut_tcp_set_hdr(pkt, isn, 0, TCP_FLAG_SYN, 65535);
 
 	/*
@@ -175,58 +175,6 @@ static void test_tcp_listen_and_read(void)
 	}
 
 	ut_close(tsock, CLOSE_TYPE_4WAY);
-}
-
-static void test_tcp_listen_synack_data_before_offload(void)
-{
-	struct tcp_sock *listen_tsock;
-	struct tcp_sock *tsock;
-	struct packet *pkt;
-	struct packet *data_pkt;
-	struct tpa_iovec iov;
-	struct tpa_sock_info info;
-	int sid;
-
-	printf(":: %s\n", __func__);
-
-	sid = listen_random_port(NULL, &info); {
-		assert(sid >= 0 && sid < tcp_cfg.nr_max_sock);
-		listen_tsock = &sock_ctrl->socks[sid];
-	}
-
-	pkt = inject_syn_packet(listen_tsock);
-	ut_tcp_input_one(listen_tsock, pkt); {
-		assert(listen_tsock->state == TCP_STATE_LISTEN);
-
-		assert(ut_tcp_output(&pkt, 1) == 1); {
-			tsock = find_tsock_by_synack_pkt(pkt);
-		}
-	}
-
-	/*
-	 * simulate the syn-ack pkt and data pkt get recv at the same
-	 * time before sock being offloaded (therefore, the data_pkt
-	 * would still match the listen tsock, with the flow mark
-	 * from it).
-	 */
-	pkt = ut_inject_ack_packet(tsock, tsock->snd_nxt);
-	data_pkt = ut_inject_data_packet(tsock, tsock->rcv_nxt, 1000);
-	data_pkt->mbuf.hash.fdir.hi = make_flow_mark(worker->id, listen_tsock->sid);
-	ut_tcp_input_one(tsock, pkt);
-	ut_tcp_input_one(tsock, data_pkt); {
-		assert(tsock->state == TCP_STATE_ESTABLISHED);
-
-		assert(tpa_accept_burst(worker, &sid, 1) == 1);
-		assert(sid == tsock->sid);
-		assert(tpa_sock_info_get(sid, &info) == 0);
-		assert(info.data == (void *)&info);
-
-		assert(tpa_zreadv(tsock->sid, &iov, 1) == 1000);
-		iov.iov_read_done(iov.iov_base, iov.iov_param);
-	}
-
-	ut_close(tsock, CLOSE_TYPE_4WAY);
-	ut_close(listen_tsock, CLOSE_TYPE_CLOSE_DIRECTLY);
 }
 
 static void test_tcp_listen_invalid_pkt(void)
@@ -583,56 +531,12 @@ static void test_tcp_accept_at_close_wait(void)
 	ut_tcp_output(NULL, -1);
 }
 
-static void test_tcp_listen_offload_fail(void)
-{
-	int sid;
-
-	printf(":: testing %s\n", __func__);
-
-	/* a trick to make flow offload fail */
-	tpa_cfg.nr_dpdk_port = 1; {
-		sid = listen_random_port("127.0.0.1", NULL); {
-			assert(sid < 0);
-			assert(errno == EBUSY);
-		}
-
-		sid = listen_random_port("::1", NULL); {
-			assert(sid < 0);
-			assert(errno == EBUSY);
-		}
-
-		sid = listen_random_port(NULL, NULL); {
-			assert(sid < 0);
-			assert(errno == EBUSY);
-		}
-	}
-
-	/* make sure we are back to normal */
-	tpa_cfg.nr_dpdk_port = 0; {
-		sid = listen_random_port("127.0.0.1", NULL); {
-			assert(sid >= 0);
-			ut_close(&sock_ctrl->socks[sid], CLOSE_TYPE_CLOSE_DIRECTLY);
-		}
-
-		sid = listen_random_port("::1", NULL); {
-			assert(sid >= 0);
-			ut_close(&sock_ctrl->socks[sid], CLOSE_TYPE_CLOSE_DIRECTLY);
-		}
-
-		sid = listen_random_port(NULL, NULL); {
-			assert(sid >= 0);
-			ut_close(&sock_ctrl->socks[sid], CLOSE_TYPE_CLOSE_DIRECTLY);
-		}
-	}
-}
-
 int main(int argc, char *argv[])
 {
 	ut_init(argc, argv);
 
 	test_tcp_listen_basic();
 	test_tcp_listen_and_read();
-	test_tcp_listen_synack_data_before_offload();
 	test_tcp_listen_invalid_pkt();
 	test_tcp_listen_dup_syn();
 	test_tcp_listen_port();
@@ -645,7 +549,6 @@ int main(int argc, char *argv[])
 	test_tcp_listen_recv_rst_at_syn_rcvd();
 	test_tcp_listen_syn_rcvd_then_close();
 	test_tcp_accept_at_close_wait();
-	test_tcp_listen_offload_fail();
 
 	return 0;
 }

@@ -19,7 +19,6 @@ TSH_CMDS=(arp
 	  vstats-reset
 	  uptime
 	  port
-	  port_alloc
 )
 
 ALIAS=("mem-stats	mem"
@@ -145,7 +144,7 @@ require_tpa_id()
 	local cmd=$1
 
 	# below cmds don't require a tpa id
-	for i in verbose_version sock-trace sock-trace-list run mlnx.sh mem-file; do
+	for i in verbose_version sock-trace sock-trace-list run mem-file; do
 		[ "$i" = "$cmd" ] && return 1
 	done
 

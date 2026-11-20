@@ -9,7 +9,7 @@ params:
   ip: [ "127.0.0.1", "::1" ]
   test: [ read, write, rw, rr ]
   tso: [ 0, 1 ]
-  zwrite: [ 0, 1 ]
+  zwrite: [ 0 ]
   size: [ 1, 1500, 4KB, 128KB ]
 end
 

@@ -20,8 +20,6 @@
 struct tpa_worker *worker;
 int ut_with_timer = 1;
 int skip_arp;
-uint16_t ut_port_min;
-uint16_t ut_port_max;
 uint64_t on_interval_last;
 static rte_atomic32_t nr_malloc;
 
@@ -209,7 +207,7 @@ void ut_measure_rate(struct tcp_sock *tsock, int interval)
 	last.ts_us = worker->ts_us;
 }
 
-struct packet *ut_make_packet(int is_reply, uint16_t client_port, uint32_t flow_id)
+struct packet *ut_make_packet(int is_reply, uint16_t client_port)
 {
 	struct packet *pkt;
 	struct rte_mbuf *m;
@@ -277,11 +275,6 @@ struct packet *ut_make_packet(int is_reply, uint16_t client_port, uint32_t flow_
 		tcp->dst_port = htons(SERVER_PORT);
 	}
 
-	if (ut_test_opts.with_flow_mark && flow_id != INVALID_FLOW_ID) {
-		m->ol_flags |= PKT_RX_FDIR_ID;
-		m->hash.fdir.hi = make_flow_mark(0, flow_id);
-	}
-
 	return pkt;
 }
 
@@ -294,7 +287,7 @@ struct packet *ut_inject_tcp_pkt(struct tcp_sock *tsock, uint32_t seq, uint32_t 
 	struct packet *pkt;
 	int opt_len = 0;
 
-	pkt = ut_make_packet(1, tsock->local_port, tsock->sid);
+	pkt = ut_make_packet(1, tsock->local_port);
 	ut_tcp_set_hdr(pkt, seq, ack, flags, win);
 	tcp = ut_packet_tcp_hdr(pkt);
 
@@ -321,7 +314,7 @@ struct packet *ut_inject_data_packet(struct tcp_sock *tsock, uint32_t seq, int p
 	struct packet *pkt;
 	int opt_len;
 
-	pkt = ut_make_packet(1, tsock->local_port, tsock->sid);
+	pkt = ut_make_packet(1, tsock->local_port);
 	ut_tcp_set_hdr(pkt, seq, tsock->snd_nxt, TCP_FLAG_ACK, tsock->snd_wnd >> tsock->snd_wscale);
 	opt_len = ut_tcp_set_opt(ut_packet_tcp_hdr(pkt), 0, TCP_OPT_TS_KIND, tsock->snd_ts);
 	ut_ip_set_hdr(pkt, opt_len, payload_len);
@@ -385,7 +378,7 @@ struct packet *ut_inject_ack_packet(struct tcp_sock *tsock, uint32_t ack)
 	struct packet *pkt;
 	int opt_len = 0;
 
-	pkt = ut_make_packet(1, tsock->local_port, tsock->sid);
+	pkt = ut_make_packet(1, tsock->local_port);
 	ut_tcp_set_hdr(pkt, tsock->rcv_nxt, ack, TCP_FLAG_ACK, tsock->snd_wnd >> tsock->snd_wscale);
 	if (tsock->ts_ok)
 		opt_len = ut_tcp_set_opt(ut_packet_tcp_hdr(pkt), 0, TCP_OPT_TS_KIND, tsock->snd_ts);
@@ -401,7 +394,7 @@ struct packet *ut_inject_sack_packet(struct tcp_sock *tsock, uint32_t ack,
 	struct packet *pkt;
 	int opt_len = 0;
 
-	pkt = ut_make_packet(1, tsock->local_port, tsock->sid);
+	pkt = ut_make_packet(1, tsock->local_port);
 	tcp = ut_packet_tcp_hdr(pkt);
 
 	ut_tcp_set_hdr(pkt, tsock->rcv_nxt, ack, TCP_FLAG_ACK, tsock->snd_wnd >> tsock->snd_wscale);
@@ -444,7 +437,7 @@ struct packet *ut_inject_rst_packet(struct tcp_sock *tsock)
 	struct packet *pkt;
 	int opt_len;
 
-	pkt = ut_make_packet(1, tsock->local_port, tsock->sid);
+	pkt = ut_make_packet(1, tsock->local_port);
 	ut_tcp_set_hdr(pkt, tsock->rcv_nxt, tsock->snd_nxt, TCP_FLAG_ACK | TCP_FLAG_RST, tsock->snd_wnd >> tsock->snd_wscale);
 	opt_len = ut_tcp_set_opt(ut_packet_tcp_hdr(pkt), 0, TCP_OPT_TS_KIND, tsock->snd_ts);
 	ut_ip_set_hdr(pkt, opt_len, 0);
@@ -639,7 +632,7 @@ struct packet *make_synack_packet(struct tcp_sock *tsock, int has_ts, int mss, i
 	isn = isn_gen(&tsock->local_ip, &tsock->remote_ip,
 		      tsock->local_port, tsock->remote_port);
 
-	pkt = ut_make_packet(1, tsock->local_port, tsock->sid);
+	pkt = ut_make_packet(1, tsock->local_port);
 	tcp = ut_packet_tcp_hdr(pkt);
 
 	ut_tcp_set_hdr(pkt, isn, tsock->snd_nxt, RTE_TCP_SYN_FLAG | RTE_TCP_ACK_FLAG, 65535);
@@ -968,7 +961,6 @@ struct tcp_sock *ut_trigger_connect(void)
 
 	tsock = &sock_ctrl->socks[sid];
 	assert(((uint64_t)(uintptr_t)tsock & 63) == 0);
-	assert(htons(tsock->local_port) >= ut_port_min && htons(tsock->local_port) < ut_port_max);
 
 	return tsock;
 }
@@ -1193,11 +1185,10 @@ static void parse_test_opts(int argc, char **argv)
 	memset(&ut_test_opts, 0, sizeof(ut_test_opts));
 	ut_test_opts.message_size = 1000;
 	ut_test_opts.with_cksum = 1;
-	ut_test_opts.with_flow_mark = 1;
 	ut_test_opts.with_sock_trace = 1;
 	ut_test_opts.duration = 5;
 
-	while ((opt = getopt(argc, argv, "d:m:w:C:M:T:Z:ts6:F:S:")) != -1) {
+	while ((opt = getopt(argc, argv, "d:m:w:C:M:T:Z:ts6:S:")) != -1) {
 		switch (opt) {
 		case 'd':
 			ut_test_opts.duration = atoi(optarg);
@@ -1237,10 +1228,6 @@ static void parse_test_opts(int argc, char **argv)
 
 		case '6':
 			ut_test_opts.with_ipv6 = atoi(optarg);
-			break;
-
-		case 'F':
-			ut_test_opts.with_flow_mark = atoi(optarg);
 			break;
 
 		case 'S':
@@ -1312,10 +1299,8 @@ void ut_exit(void)
 
 static void ut_dev_port_init(void)
 {
-	dev.nr_port = MAX_PORT_NR;
-	dev_port_init();
 	dev.nr_port = 1;
-	dev.ports[0].nic_spec = nic_spec_find_by_type(DEV_NIC_MLNX);
+	dev_port_init();
 }
 
 void ut_init(int argc, char **argv)
@@ -1336,13 +1321,6 @@ void ut_init(int argc, char **argv)
 	if (strstr(argv[0], "tcp_connect_crr") || strstr(argv[0], "arp"))
 		mem_size = 256;
 
-	ut_port_min = 54000;
-	ut_port_max = 64000 - 1;
-	if (strstr(argv[0], "port_alloc")) {
-		ut_port_min = 42000;
-		ut_port_max = 50000;
-	}
-
 	tpa_snprintf(dpdk_params, sizeof(dpdk_params), "--no-huge -m %d --no-pci %s",
 		 mem_size, getenv("TPA_LOG_DISABLE") ? "--log-level 0" : "");
 
@@ -1353,14 +1331,12 @@ void ut_init(int argc, char **argv)
 				   "tcp { nr_max_sock = %d; tso = 0; "
 				   "      trace = %d; trace_size = 16KB; "
 				   "      more_trace = 1; rto_min = 1s; "
-				   "      local_port_range = %d %d; "
 				   "} "
 				   "archive { flush_interval = 1;} "
 				   "%s",
 		 CLIENT_IP_STR, IP_MASK_STR, GW_IP_STR,
 		 CLIENT_IP6_STR, 64, GW6_IP_STR, dpdk_params,
 		 nr_sock, ut_test_opts.with_sock_trace,
-		 ut_port_min, ut_port_max,
 		 getenv("TPA_CFG"));
 
 	setenv("TPA_ROOT_PREFIX", ut_root_prefix, 1);

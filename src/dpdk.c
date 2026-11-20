@@ -157,8 +157,7 @@ static void do_port_stats_get(struct shell_buf *reply, int port_id) {
     return;
   }
 
-  shell_append_reply(reply, "PORT[%d](%s):\n", port_id,
-                     dev.ports[port_id].state == DEV_LINK_UP ? "UP" : "DOWN");
+  shell_append_reply(reply, "PORT[%d]:\n", port_id);
   show_port_stats(reply, port_id);
   show_port_xstats(reply, port_id);
   shell_append_reply(reply, "\n");
@@ -170,8 +169,6 @@ static void port_stats_get(struct shell_buf *reply,
   int port_id;
 
   if (cmd->argc == 1 || strcmp(cmd->argv[1], "all") == 0) {
-    shell_append_reply(reply, "All port down:%lu\n", dev.all_port_down);
-
     for (i = 0; i < rte_eth_dev_count_avail(); ++i)
       do_port_stats_get(reply, i);
 

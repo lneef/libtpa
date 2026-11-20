@@ -91,16 +91,7 @@ It starts a new active connection, where
      * tpa_connect_to and tpa_connect_to.
      */
     struct tpa_sock_opts {
-        /*
-         * When @listen_scaling is set to
-         * - 0: passive connections will be only distributed to the worker
-         *      where this listen sock has been bound to.
-         * - 1: passive connections will be distributed to all workers.
-         *
-         * tpa_listen_on only.
-         */
-        uint64_t listen_scaling:1;
-        uint64_t bits_reserved:63;
+        uint64_t bits_reserved;
 
         /*
          * A private data set by user for listen sock. It could be
@@ -156,21 +147,17 @@ It creates a sock listening on the given address and port. Where,
 
 * ``port`` specifies the local port to listen on
 
-* ``opts`` works the same as ``tpa_connect_to``. There are two options
-  relevant to a listen sock: ``listen_scaling`` and ``data``.
+* ``opts`` works the same as ``tpa_connect_to``. Only ``data`` is
+  relevant to a listen sock.
 
-.. caution::
+.. note::
 
-    By default, only the worker thread that starts the ``tpa_listen_on``
-    call will get new passive connections. And due to the shared-nothing
-    model, you can't distribute those new socks to other workers at the
-    application level after accepting them.
-
-    If you want to get those new socks distributed "evenly" to all workers,
-    you need to set ``listen_scaling``. Note that it **will not** be
-    perfect even though: as it's the NIC RSS doing the distribution under
-    the hood. If you have just a few socks, it's very likely some workers
-    get more passive connection while some get slightly fewer.
+    Passive connections are distributed to the workers by the NIC RSS:
+    the worker whose rx queue receives the SYN gets the new sock. Due to
+    the shared-nothing model, you can't distribute those socks to other
+    workers at the application level after accepting them. If you have
+    just a few socks, it's very likely some workers get more passive
+    connections while some get fewer.
 
 **accept**
 
@@ -336,17 +323,14 @@ except three more fields need to be filled by the APP:
 
 .. note::
 
-   The ``iov_phys`` is not needed for Mellanox NIC. Instead, it requires
-   the corresponding memory region to be :ref:`registered <extmem_reg>`.
+   ``iov_phys`` is the IO address the NIC reads the buffer from. Only
+   buffers libtpa handed out itself (say, the ones got from ``tpa_zreadv``)
+   have a valid one: registering external memory is
+   :ref:`not supported <extmem_reg>`.
 
    When ``iov_phys`` is set to 0, there is a special meaning in libtpa.
    It means the zero copy write is disabled, and libtpa will fallback
    to the non-zero copy version.
-
-   Since Mellanox doesn't really care about the physical address and
-   0 means disabling zero copy write, you can see ``iov_phys`` is
-   set to 1 in example applications like swing, just to enable the
-   zero copy write.
 
 
 Below is a simple zwrite example with fallback being used:
@@ -465,30 +449,15 @@ Misc
 
 **external memory management**
 
-.. note::
-
-   This section applies to Mellanox NICs only
-
-For Mellanox NICs, you need to register the memory region first if you
-want to do zero copy write with buffers inside that region.
+Zero copy write with application owned buffers needs the memory region
+to be registered (and DMA mapped) first. This is not supported: both
+functions below fail with ``ENOTSUP``.
 
 .. code-block:: c
 
     int tpa_extmem_register(void *virt_addr, size_t len, uint64_t *phys_addrs,
                             int nr_page, size_t page_size);
     int tpa_extmem_unregister(void *virt_addr, size_t len);
-
-.. code-block:: c
-   :caption: external memory register example
-
-    void *buf = aligned_alloc(4096, 4096);
-
-    if (tpa_extmem_register(buf, 4096, NULL, 1, 4096) != 0) {
-        fprintf(stderr, "failed to register external memory: %s\n", strerror(errno));
-        return;
-    }
-
-You then can do zero copy write with address within the range [buf, buf + 4096).
 
 Examples
 --------

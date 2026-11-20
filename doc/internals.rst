@@ -290,13 +290,14 @@ as far as we have it.
 Neigh
 -----
 
-The neigh implementation in libtpa is a bit special. Libtpa injects the
-neigh solicitation in the worker thread by DPDK, while it receives and
-handles the response in the ctrl thread by the AF_PACKET socket.
+The neigh implementation in libtpa is incomplete. Libtpa injects the
+neigh solicitation in the worker thread by DPDK, but the response is not
+processed yet: the worker drops everything that is not TCP. Therefore,
+the neigh cache has to be populated statically, with the
+``TPA_ARP_ENTRIES`` env var.
 
-It works well, since, by the current design, libtpa is not a standalone
-TCP/IP stack. We need to handle neigh response in the worker thread as
-well if you want to make libtpa be a standalone TCP/IP stack.
+To resolve neighbors dynamically, the worker thread has to hand the ARP
+and NDP packets it receives over to ``arp_input`` and ``ndp_input``.
 
 Libtpad
 -------
@@ -311,10 +312,11 @@ kernel stack would also do nothing.
 Therefore, libtpa introduces a daemon process for each instance. The daemon
 basically enters to sleep mode when it starts. It will get woken up when
 the corresponding instance is dead (either normally or abnormally). It
-then will do the missing cleanup work: terminating active socks.
+then archives the sock and sock trace files of the dead instance.
 
-The terminating process is also kind of tricky, as it simply forges
-a TCP RST packet and sends it out by, again, the AF_PACKET socket.
+The daemon does not terminate the established socks: the NIC is owned by
+DPDK, hence there is no kernel netdev it could send a TCP RST with. It's
+the keepalive, described below, that cleans them up at the remote end.
 
 Keepalive
 ---------
@@ -328,15 +330,17 @@ with a few minutes delay).
 Thus, keepalive is enabled by default in libtpa. You should not
 disable it unless you know what you are doing.
 
-Offload
--------
+Flow Steering
+-------------
 
-As stated in the :ref:`requirements <requirements>` section, libtpa
-leverages the flow bifurcation to steer the packets of interest to itself.
-It's the rte_flow interface doing the job under the hood.
+Libtpa follows the shared-nothing model: a connection is handled by one
+worker only, and every worker owns one rx queue of the NIC. It's the NIC
+RSS, with a key set by libtpa, doing the steering under the hood.
 
-More specifically, it's the QUEUE action to steer specific packets to
-a specific worker, therefore, the shared-nothing model.
+For an active connection, libtpa picks the local port in a way that the
+RSS hash of the incoming packets lands on the queue of the worker doing
+the connect. For a passive connection, the worker whose queue receives
+the SYN packet gets it.
 
 .. _matrix_shell:
 

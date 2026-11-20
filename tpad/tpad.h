@@ -10,12 +10,11 @@ struct tpad {
 	char *name;
 	char *sock_file;
 	char *sock_trace_file;
-	char *eth_dev;
 	char *archive_dir;
 };
 
 extern struct tpad tpad;
-void sock_termination(void);
+void sock_file_archive(void);
 void sock_archive(void);
 
 #endif

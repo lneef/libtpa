@@ -14,8 +14,6 @@
 
 #define NEIGH_QUEUE_LEN		1024
 
-#define ND_SKIP		-2
-
 /*
  * TODO: get rid of the count limit and use hash for search
  */
@@ -29,10 +27,8 @@ struct neigh_entry {
 };
 
 struct neigh_ops {
-	int (*nd_init)(void);
+	void (*nd_init)(void);
 	int (*nd_solicit)(struct tpa_ip *ip, struct tpa_worker *worker);
-	int (*nd_solicit_by_socket)(int fd, struct tpa_ip *ip);
-	int (*nd_input)(uint8_t *packet, size_t len);
 };
 
 void neigh_init(void);

@@ -28,7 +28,7 @@ void usage(void)
 			"  -n nr_thread      specifies the thread count (default: 1)\n"
 			"  -i                do integrity verification (default: off)\n"
 			"  -C nr_conn        specifies the connection to be created for each thread (default: 1)\n"
-			"  -W 0|1            disable/enable zero copy write (default: on)\n"
+			"  -W 0|1            disable/enable zero copy write (default: off)\n"
 			"  -S start_cpu      specifies the starting cpu to bind\n"
 			"\n"
 			"Server options:\n"
@@ -77,7 +77,7 @@ int parse_options(int argc, char **argv)
 	ctx.duration      = DEFAULT_DURATION;
 	ctx.message_size  = DEFAULT_MESSAGE_SIZE;
 	ctx.enable_tso    = 1;
-	ctx.enable_zwrite = 1;
+	ctx.enable_zwrite = 0;
 	ctx.start_cpu     = -4096;
 	ctx.nr_conn_per_thread = 1;
 

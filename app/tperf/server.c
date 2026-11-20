@@ -49,7 +49,6 @@ static void start_server(void)
 	int sid;
 
 	memset(&opts, 0, sizeof(opts));
-	opts.listen_scaling = 1;
 
 	sid = tpa_listen_on(ctx.local, ctx.port, &opts);
 	if (sid < 0) {

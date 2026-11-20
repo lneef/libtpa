@@ -4,12 +4,7 @@
  * Author: Yuanhan Liu <liuyuanhan.131@bytedance.com>
  * Author: Kai Xiong <xiongkai.123@bytedance.com>
  */
-#include <sys/socket.h>
 #include <netinet/icmp6.h>
-#include <sys/types.h>
-#include <ifaddrs.h>
-#include <linux/if_packet.h>
-#include <net/if.h>
 
 #include <rte_ethdev.h>
 #include <rte_ether.h>
@@ -111,28 +106,6 @@ static int ndp_solicit(struct tpa_ip *ip, struct tpa_worker *worker)
 	return ret;
 }
 
-static int ndp_solicit_by_socket(int fd, struct tpa_ip *ip)
-{
-	struct ndp_solicit_hdr hdr;
-	struct sockaddr_in6 addr;
-	size_t size;
-
-	ndp_init_hdr(&hdr, ip);
-	size = sizeof(hdr) - sizeof(hdr.eth) - sizeof(hdr.ip6);
-
-	memset(&addr, 0, sizeof(addr));
-	addr.sin6_family = AF_INET6;
-	addr.sin6_scope_id = if_nametoindex(dev.name);
-	memcpy(addr.sin6_addr.s6_addr, IP6_ADDR_BYTES(hdr.ip6.dst_addr), sizeof(addr.sin6_addr.s6_addr));
-
-	if (sendto(fd, &hdr.ns, size, 0, (struct sockaddr *)&addr, sizeof(addr)) != size) {
-		LOG_WARN("failed to send ndp neigh solicit packet: %s", strerror(errno));
-		return -1;
-	}
-
-	return 0;
-}
-
 int ndp_input(uint8_t *packet, size_t len)
 {
 	struct nd_neighbor_advert *na  = (struct nd_neighbor_advert *)packet;
@@ -155,67 +128,13 @@ int ndp_input(uint8_t *packet, size_t len)
 	return 0;
 }
 
-static void ndp_cache_init(void)
+static void ndp_init(void)
 {
-	char ip6[INET6_ADDRSTRLEN];
-	struct tpa_ip ip;
-	char buf[1024];
-	char eth[128];
-	uint8_t mac[6];
-	FILE *f;
-
-	if (getenv("TPA_NDP_SKIP_CACHE_INIT"))
-		return;
-
-	f = popen("ip -6 neigh", "r");
-	if (!f) {
-		LOG_ERR("failed to get initial ip6 neighbos");
-		return;
-	}
-
-	while (fgets(buf, sizeof(buf), f)) {
-		if (sscanf(buf, "%s dev %s lladdr %hhx:%hhx:%hhx:%hhx:%hhx:%hhx", ip6, eth,
-			   &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) != 8) {
-			continue;
-		}
-
-		if (strlen(dev.name) && strcmp(eth, dev.name))
-			continue;
-
-		neigh_update(tpa_ip_from_str(&ip, ip6), mac);
-	}
-
 	/* for supporting loopback mode */
 	neigh_update(&dev.ip6.ip, dev.mac.addr_bytes);
-
-	pclose(f);
-}
-
-static int ndp_init(void)
-{
-	struct icmp6_filter filter;
-	int fd;
-
-	ndp_cache_init();
-
-	fd = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
-	if (fd < 0)
-		return -1;
-
-	ICMP6_FILTER_SETBLOCKALL(&filter);
-	ICMP6_FILTER_SETPASS(ND_NEIGHBOR_ADVERT, &filter);
-	if (setsockopt(fd, IPPROTO_ICMPV6, ICMP6_FILTER, &filter, sizeof(filter)) <  0)
-		LOG_WARN("failed to set filter: ND_NEIGHBOR_ADVERT pkts only");
-
-	setsockopt(fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &(int){ 255 }, sizeof(int));
-	setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &(int){ 255 }, sizeof(int));
-
-	return fd;
 }
 
 const struct neigh_ops ndp_ops = {
 	.nd_init = ndp_init,
 	.nd_solicit = ndp_solicit,
-	.nd_solicit_by_socket = ndp_solicit_by_socket,
-	.nd_input = ndp_input,
 };

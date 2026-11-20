@@ -32,9 +32,10 @@ struct mbuf_pool *mbuf_pool_create(void)
 		mbuf_free(&mbufs[i]);
 	}
 
-	if (tpa_extmem_register(addr, MBUF_POOL_SIZE, NULL,
+	if (ctx.enable_zwrite &&
+	    tpa_extmem_register(addr, MBUF_POOL_SIZE, NULL,
 				   MBUF_POOL_SIZE / MBUF_SIZE, MBUF_SIZE) != 0) {
-		fprintf(stderr, "err_tpa_extmem_register: %s", strerror(errno));
+		fprintf(stderr, "err_tpa_extmem_register: %s\n", strerror(errno));
 		exit(1);
 	}
 

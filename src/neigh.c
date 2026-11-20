@@ -5,10 +5,6 @@
  * Author: Kai Xiong <xiongkai.123@bytedance.com>
  */
 #include <stdio.h>
-#include <unistd.h>
-#include <netinet/if_ether.h>
-#include <sys/socket.h>
-#include <fcntl.h>
 
 #include <rte_ethdev.h>
 #include <rte_ether.h>
@@ -21,7 +17,6 @@
 #include "shell.h"
 #include "packet.h"
 #include "neigh.h"
-#include "ctrl.h"
 
 struct neigh_cache {
 	int nr_neigh;
@@ -43,16 +38,13 @@ static struct neigh_cache neigh_cache = {
 struct neigh_impl {
 	const char *name;
 	const struct neigh_ops *ops;
-	int fd;
 	int stats_code;
 	int err_stats_code;
-
-	uint64_t rx_pkts;
 };
 
 static struct neigh_impl neigh_impl[NR_NEIGH_IMPL]  = {
-	{ "arp", &arp_ops, -1, ARP_SOLICIT, ERR_ARP_SOLICIT, 0 },
-	{ "ndp", &ndp_ops, -1, NDP_SOLICIT, ERR_NDP_SOLICIT, 0 },
+	{ "arp", &arp_ops, ARP_SOLICIT, ERR_ARP_SOLICIT },
+	{ "ndp", &ndp_ops, NDP_SOLICIT, ERR_NDP_SOLICIT },
 };
 
 int get_neigh_cache_len(void)
@@ -388,94 +380,17 @@ void neigh_input(struct tpa_ip *ip, uint8_t *mac)
 		check_neigh_wait_queue();
 }
 
-static int set_nonblock(int fd)
-{
-	int flags;
-
-	flags = fcntl(fd, F_GETFL, 0);
-	if (flags == -1)
-		return -1;
-
-	flags |= O_NONBLOCK;
-
-	return fcntl(fd, F_SETFL, flags);
-}
-
-static void *neigh_recv(struct ctrl_event *event)
-{
-	struct neigh_impl *impl = event->arg;
-	struct sockaddr saddr;
-	socklen_t saddr_size;
-	uint8_t packet[2000];
-	int ret;
-
-	while (1) {
-		saddr_size = sizeof(saddr);
-		ret = recvfrom(impl->fd, packet, sizeof(packet), 0, &saddr, &saddr_size);
-		if (ret < 0) {
-			if (errno == EWOULDBLOCK || errno == EAGAIN || errno == EINTR)
-				break;
-
-			LOG_ERR("failed to recv neigh response: %s", strerror(errno));
-			break;
-		}
-
-		impl->ops->nd_input(packet, ret);
-		impl->rx_pkts += 1;
-	}
-
-	return NULL;
-}
-
-#define SOLICIT_TIMEOUT		30
-
-static void *neigh_solicit(struct ctrl_event *event)
-{
-	struct neigh_entry *entry;
-	struct neigh_impl *impl;
-	uint64_t now = rte_rdtsc();
-	int i;
-
-	for (i = 0; i < neigh_cache.nr_neigh; i++) {
-		entry = &neigh_cache.neigh_entries[i];
-		if (TSC_TO_US(now - entry->last_update) > SOLICIT_TIMEOUT * 1000000) {
-			impl = &neigh_impl[!tpa_ip_is_ipv4(&entry->ip)];
-			impl->ops->nd_solicit_by_socket(impl->fd, &entry->ip);
-		}
-	}
-
-	return NULL;
-}
-
 static void neigh_impl_init(void)
 {
 	struct neigh_impl *impl;
-	int fd;
 	int i;
 
 	for (i = 0; i < NR_NEIGH_IMPL; i++) {
 		impl = &neigh_impl[i];
 
 		LOG("neighbor init: %s", impl->name);
-		fd = impl->ops->nd_init();
-		if (fd == ND_SKIP)
-			continue;
-
-		if (fd < 0) {
-			LOG_ERR("failed to create poll socket for %s: %s",
-				impl->name, strerror(errno));
-			continue;
-		}
-
-		if (set_nonblock(fd) < 0) {
-			LOG_ERR("failed to set nonblock for fd %d: %s", fd, strerror(errno));
-			continue;
-		}
-
-		impl->fd = fd;
-		ctrl_event_create(fd, neigh_recv, impl, impl->name);
+		impl->ops->nd_init();
 	}
-	ctrl_timeout_event_create(SOLICIT_TIMEOUT, neigh_solicit, NULL, "neigh-solicit");
 }
 
 static void neigh_queue_init(void)
@@ -508,15 +423,6 @@ void neigh_dump(struct shell_buf *reply)
 static int cmd_neigh(struct shell_cmd_info *cmd)
 {
 	neigh_dump(cmd->reply);
-
-	if (cmd->argc == 1 && strcmp(cmd->argv[0], "-s") == 0) {
-		shell_append_reply(cmd->reply,
-				   "---\n"
-				   "ARP.rx_pkts: %lu\n"
-				   "NDP.rx_pkts: %lu\n",
-				   neigh_impl[0].rx_pkts,
-				   neigh_impl[1].rx_pkts);
-	}
 
 	return 0;
 }

@@ -14,7 +14,6 @@
 #include "dev.h"
 #include "flex_fifo.h"
 #include "ip.h"
-#include "offload.h"
 #include "packet.h"
 #include "sock_table.h"
 #include "timer.h"
@@ -73,8 +72,6 @@ enum {
 
 /* a short version of tpa_sock_opts, to reduce the memory usage */
 struct tpa_sock_opts_short {
-  uint32_t listen_scaling : 1;
-
   uint16_t local_port;
   void *data;
 };
@@ -193,7 +190,6 @@ struct tcp_sock {
   struct tcp_txq txq;
   uint32_t partial_ack;
 
-  struct offload_list offload_list;
   struct tpa_worker *worker;
 
   uint32_t interested_events;
@@ -375,25 +371,6 @@ static inline struct tcp_sock *tsock_get_by_sid(int sid) {
   return tsock;
 }
 
-static inline uint32_t make_flow_mark(uint32_t wid, uint32_t sid) {
-  return (sid << tpa_cfg.nr_worker_shift) | wid;
-}
-
-static inline int parse_flow_mark(int wid, struct packet *pkt) {
-  int sid;
-
-  if (unlikely((pkt->mbuf.ol_flags & PKT_RX_FDIR_ID) == 0))
-    return -WARN_MISSING_FLOW_MARK;
-
-  sid = pkt->mbuf.hash.fdir.hi >> tpa_cfg.nr_worker_shift;
-  pkt->wid = pkt->mbuf.hash.fdir.hi & tpa_cfg.nr_worker_mask;
-
-  if (unlikely(pkt->wid >= tpa_cfg.nr_worker))
-    return -ERR_FLOW_MARK_INVALID;
-
-  return sid;
-}
-
 static inline int tuple_matches(struct tcp_sock *tsock, struct packet *pkt) {
   struct tpa_ip src_ip;
   struct tpa_ip dst_ip;
@@ -420,41 +397,13 @@ static inline int tuple_matches(struct tcp_sock *tsock, struct packet *pkt) {
          tpa_ip_equal(&tsock->remote_ip, &src_ip);
 }
 
-static inline int tsock_lookup(struct tpa_worker *worker, int wid,
-                               struct packet *pkt,
+static inline int tsock_lookup(struct tpa_worker *worker, struct packet *pkt,
                                struct tcp_sock **tsock_ptr) {
-  struct tcp_sock *tsock;
-  int sid;
   int err;
 
-  sid = parse_flow_mark(wid, pkt);
-  if (likely(sid >= 0)) {
-    if (unlikely(sid >= tcp_cfg.nr_max_sock))
-      return -ERR_NO_SOCK;
-
-    tsock = &sock_ctrl->socks[sid];
-    if (unlikely(!tuple_matches(tsock, pkt) || tsock->sid != sid))
-      return -WARN_STALE_PKT_TUPLE_MISMATCH;
-
-    if (unlikely(tsock->state == TCP_STATE_LISTEN)) {
-      struct tcp_sock *child;
-
-      if (tsock_lookup_slowpath(worker, pkt, &child) == 0) {
-        assert(child->state != TCP_STATE_LISTEN);
-        tsock = child;
-      }
-    }
-
-    *tsock_ptr = tsock;
-    return 0;
-  }
-
-  err = sid;
-  if (err == -WARN_MISSING_FLOW_MARK) {
-    err = tsock_lookup_slowpath(worker, pkt, tsock_ptr);
-    if (err == -ERR_NO_SOCK)
-      err = listen_tsock_lookup(pkt, tsock_ptr);
-  }
+  err = tsock_lookup_slowpath(worker, pkt, tsock_ptr);
+  if (err == -ERR_NO_SOCK)
+    err = listen_tsock_lookup(pkt, tsock_ptr);
 
   return err;
 }

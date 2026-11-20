@@ -17,15 +17,13 @@ application.
 Build Libtpa
 ------------
 
-Install Mellanox OFED
-~~~~~~~~~~~~~~~~~~~~~
+Install DPDK
+~~~~~~~~~~~~
 
-Libtpa currently supports Mellanox NIC only. The Mellanox OFED has to
-be installed.  It can be downloaded from
-`here <https://network.nvidia.com/products/infiniband-drivers/linux/mlnx_ofed/>`_.
-Then run below command to install it::
-
-    ./mlnxofedinstall --dpdk --upstream-libs
+Libtpa builds against the DPDK found by ``pkg-config libdpdk``. Build and
+install DPDK (v26.07 is the tested version) with at least the ``net/ena``
+driver enabled, and bind the NIC port libtpa should use to a DPDK compatible
+driver, say ``vfio-pci``.
 
 Install Dependencies
 ~~~~~~~~~~~~~~~~~~~~
@@ -35,7 +33,7 @@ libtpa source dir to install the dependencies:
 
 .. code-block:: text
 
-    ./buildtools/install-dep.deb.sh --with-meson
+    ./buildtools/install-dep.deb.sh
 
 Build Libtpa
 ~~~~~~~~~~~~
@@ -51,21 +49,23 @@ Run First Libtpa Application
 Before running a libtpa application, hugepages need to be allocated first.
 Here is a `guide from DPDK <https://doc.dpdk.org/guides/linux_gsg/sys_reqs.html#use-of-hugepages-in-the-linux-environment>`_.
 
-Then it's ready to run your first libtpa application: swing,
-a telnet-like tool, to verify everything is set up correctly.
+The NIC port is fully owned by DPDK, so the network config has to be given
+explicitly, here by the ``TPA_CFG`` env var. The peer's mac address is given
+by ``TPA_ARP_ENTRIES``. Then it's ready to run your first libtpa application:
+swing, a telnet-like tool, to verify everything is set up correctly.
 
 .. code-block:: text
 
+    # export TPA_CFG='net { ip=192.168.1.10; mask=255.255.255.0; gw=192.168.1.1; \
+                            mac=fa:16:3e:30:4f:90; } dpdk { pci=0000:00:06.0; }'
+    # export TPA_ARP_ENTRIES='192.168.1.12=fa:16:3e:30:4f:91'
     # tpa run swing 192.168.1.12 22
-    :: TPA_CFG='net { name=eth0; mac=fa:16:3e:30:4f:90; ip=192.168.1.10; mask=255.255.255.0; \
-                   gw=192.168.1.1; ip6=fe80::f816:3eff:fe30:4f90/64; } dpdk { pci=0000:00:05.0; } '
+    :: TPA_CFG='net { ip=192.168.1.10; mask=255.255.255.0; gw=192.168.1.1; \
+                      mac=fa:16:3e:30:4f:90; } dpdk { pci=0000:00:06.0; }'
     :: cmd=swing 192.168.1.12 22
     EAL: Detected CPU lcores: 8
     EAL: Detected NUMA nodes: 1
     EAL: Detected static linkage of DPDK
-    EAL: Selected IOVA mode 'PA'
-    EAL: Probe PCI driver: mlx5_pci (15b3:1018) device: 0000:00:05.0 (socket -1)
-    mlx5_net: Default miss action is not supported.
     :: connecting to 192.168.1.12:22 ... [connected]
     > < SSH-2.0-OpenSSH_9.0
 

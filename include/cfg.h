@@ -66,8 +66,6 @@ struct cfg_section {
 struct tpa_cfg {
 	uint64_t hz;
 	uint32_t nr_worker;
-	uint32_t nr_worker_shift;
-	uint32_t nr_worker_mask;
 	uint32_t preferred_numa;
 
 	int nr_dpdk_port;

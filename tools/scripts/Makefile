@@ -3,7 +3,6 @@
 # Author: Yuanhan Liu <liuyuanhan.131@bytedance.com>
 
 SCRIPTS := run
-SCRIPTS += nic_mlnx.sh
 SCRIPTS += hugepage-setup.sh
 SCRIPTS += sock-stats
 SCRIPTS += tpa

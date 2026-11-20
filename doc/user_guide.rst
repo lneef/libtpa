@@ -60,33 +60,20 @@ that.
 Requirements
 ------------
 
-Due to the novel design described above (to just accelerate some specific
-TCP connections), libtpa requires
-`flow bifurcation <https://doc.dpdk.org/guides/howto/flow_bifurcation.html>`_
-support from NIC.
-
-Most NICs have flow bifurcation support with the help of SR-IOV.
-But they require some internal DPDK/Linux patches (or even firmwares)
-to satisfy the libtpa needs.
-
-On the other hand, Mellanox NIC has native flow bifurcation support
-that doesn't require SR-IOV. More importantly, it doesn't require any
-internal stuff. Libtpa works well with Mellanox NIC just with the
-upstream DPDK.
-
-Therefore, libtpa currently only supports Mellanox NIC.
+Libtpa takes over a whole NIC port with DPDK: the port is bound to a DPDK
+compatible driver (say ``vfio-pci``) and is no longer visible to the kernel.
+Incoming connections are steered to the libtpa workers by the NIC RSS only;
+no flow rules (``rte_flow``) are needed. This is the model cloud NICs offer,
+and AWS ENA is the NIC libtpa is developed and tested with.
 
 Build Libtpa
 ------------
 
-**Install Mellanox OFED:**
+**Install DPDK:**
 
-Libtpa currently supports Mellanox NIC only. The Mellanox OFED has to
-be installed.  It can be downloaded from
-`here <https://network.nvidia.com/products/infiniband-drivers/linux/mlnx_ofed/>`_.
-Then run below command to install it::
-
-    ./mlnxofedinstall --dpdk --upstream-libs
+Libtpa builds against the DPDK found by ``pkg-config libdpdk``. Build and
+install DPDK (v26.07 is the tested version) with at least the ``net/ena``
+driver enabled.
 
 **Install Dependencies:**
 
@@ -95,12 +82,6 @@ libtpa source dir to install the dependencies::
 
     ./buildtools/install-dep.deb.sh
 
-Or below if a complain about low meson version is met afterwards:
-
-.. code-block:: text
-
-   ./buildtools/install-dep.deb.sh --with-meson
-
 **Build Libtpa**
 
 With all setup, you can build libtpa simply by::
@@ -108,97 +89,58 @@ With all setup, you can build libtpa simply by::
     make
     make install
 
-.. note::
-    It's not needed to build DPDK alone. Libtpa will build DPDK when
-    necessary, say when it's not built yet or when the build mode is
-    changed. If you want to rebuild DPDK, you could::
-
-        make distclean
-        make
-
-    Moreover, you don't even need to clone DPDK first. Libtpa will do it
-    for you. Therefore, what all you need is to execute the ``make`` command.
-
-.. note::
-
-    Libtpa currently supports DPDK v19.11, v20.11 and v22.11. Both v19.11
-    and v20.11 are tested heavily inside Bytedance. V20.11.3 is the default
-    DPDK version being used. V22.11 support was just added recently.
-
-    If you want to switch to another DPDK version we currently support, say
-    v22.11, you could::
-
-        export DPDK_VERSION=v22.11
-        make
-        make install
-
-
 Run Libtpa Applications
 -----------------------
 
 Before running a libtpa application, hugepages need to be allocated first.
 Here is a `guide from DPDK <https://doc.dpdk.org/guides/linux_gsg/sys_reqs.html#use-of-hugepages-in-the-linux-environment>`_.
-After that, you are ready to run libtpa applications. And there are
-two ways.
+The NIC port also has to be bound to a DPDK compatible driver, say
+``vfio-pci``.
 
-**Run directly with the correct configs**
+The NIC port is fully owned by DPDK. Therefore, there is no kernel netdev
+libtpa could derive the network config from: it has to be given explicitly,
+either by a ``tpa.cfg`` file (in the current dir or ``/etc``) or by the
+``TPA_CFG`` env var.
 
 .. code-block:: text
 
     # cat tpa.cfg
     net {
-        name = eth0
         ip   = 192.168.1.10
         gw   = 192.168.1.1
         mask = 255.255.255.0
+        mac  = fa:16:3e:30:4f:90
     }
 
     dpdk {
-        pci = 0000:00:05.0
+        pci = 0000:00:06.0
     }
 
+    # export TPA_ARP_ENTRIES='192.168.1.12=fa:16:3e:30:4f:91'
     # swing 192.168.1.12 22
     EAL: Detected CPU lcores: 8
     EAL: Detected NUMA nodes: 1
     EAL: Detected static linkage of DPDK
-    EAL: Selected IOVA mode 'PA'
-    EAL: Probe PCI driver: mlx5_pci (15b3:1018) device: 0000:00:05.0 (socket -1)
-    mlx5_net: Default miss action is not supported.
     :: connecting to 192.168.1.12:22 ... [connected]
     > < SSH-2.0-OpenSSH_9.0
 
 If you see something similar like above, it means you are all set up and
 ready to write and run your own libtpa applications.
 
-**Run with the libtpa wrapper**
-
-There is a more convenient way to do this: run it with the libtpa wrapper.
-
-.. code-block:: text
-
-    # tpa run swing 192.168.1.12 22
-    :: TPA_CFG='net { name=eth0; mac=fa:16:3e:30:4f:90; ip=192.168.1.10; mask=255.255.255.0; \
-                   gw=192.168.1.1; ip6=fe80::f816:3eff:fe30:4f90/64; } dpdk { pci=0000:00:05.0; } '
-    :: cmd=swing 192.168.1.12 22
-    EAL: Detected CPU lcores: 8
-    EAL: Detected NUMA nodes: 1
-    EAL: Detected static linkage of DPDK
-    EAL: Selected IOVA mode 'PA'
-    EAL: Probe PCI driver: mlx5_pci (15b3:1018) device: 0000:00:05.0 (socket -1)
-    mlx5_net: Default miss action is not supported.
-    :: connecting to 192.168.1.12:22 ... [connected]
-    > < SSH-2.0-OpenSSH_9.0
-
-As you can see, it fills the correct ipv4 cfgs for you. Moreover, it also
-sets ipv6 configs when it exists.
+``net.mac`` is optional: the mac address of the DPDK port is used when it's
+not given. ``net.mtu`` defaults to 1500.
 
 .. note::
 
-    ``tpa run`` selects the first valid eth (when it is a Mellanox device and
-    has at least one IP address). If you have multiple valid eth devices, you
-    can control which one to use with the ``TPA_ETH_DEV`` env var::
+    Neighbors are not resolved dynamically yet: ARP and NDP replies are
+    not processed. The IPv4 neighbors (the peers in the same subnet, or the
+    gateway) have to be given by the ``TPA_ARP_ENTRIES`` env var, as a comma
+    separated list of ``ip=mac`` entries.
 
-        TPA_ETH_DEV=eth1 tpa run ...
+There is also a small wrapper, ``tpa run``, which logs the config being
+used to ``/var/log/tpa/startup.log`` before running the application::
+
+    tpa run swing 192.168.1.12 22
 
 Libtpa Builtin Applications
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -239,8 +181,6 @@ listen on.
    EAL: Detected NUMA nodes: 1
    EAL: Detected static linkage of DPDK
    EAL: Selected IOVA mode 'PA'
-   EAL: Probe PCI driver: mlx5_pci (15b3:1018) device: 0000:00:05.0 (socket -1)
-   mlx5_net: Default miss action is not supported.
    :: listening on port 5678 ...
 
 **tperf**
@@ -328,8 +268,6 @@ the same host, one is the tperf server, and the other one is the tperf client.
    EAL: Selected IOVA mode 'PA'
    EAL: No available hugepages reported in hugepages-1048576kB
    EAL: Probing VFIO support...
-   EAL: Probe PCI driver: mlx5_pci (15b3:1017) device: 0000:5e:00.1 (socket 0)
-   mlx5_pci: Default miss action is not supported.
 
 .. code-block:: text
    :caption: Tperf Client
@@ -341,8 +279,6 @@ the same host, one is the tperf server, and the other one is the tperf client.
    EAL: Selected IOVA mode 'PA'
    EAL: No available hugepages reported in hugepages-1048576kB
    EAL: Probing VFIO support...
-   EAL: Probe PCI driver: mlx5_pci (15b3:1017) device: 0000:5e:00.1 (socket 0)
-   mlx5_pci: Default miss action is not supported.
        0 RR .0 min=4.10us avg=4.43us max=96.51us count=224809
        1 RR .0 min=4.10us avg=4.38us max=79.36us count=228426
        2 RR .0 min=4.10us avg=4.36us max=84.22us count=229371
@@ -475,8 +411,6 @@ To demonstrates what a trace looks like, let's run the swing first::
     EAL: Selected IOVA mode 'PA'
     EAL: No available hugepages reported in hugepages-1048576kB
     EAL: Probing VFIO support...
-    EAL: Probe PCI driver: mlx5_pci (15b3:1018) device: 0000:00:05.0 (socket 0)
-    mlx5_pci: Default miss action is not supported.
     :: connecting to 127.0.0.1:5678 ... [connected]
     > hello world
     < hello world
@@ -715,8 +649,6 @@ displays the config options in a slightly different format: section_name.key.
     net.ip6                  ::
     net.gw6                  ::
     net.mac                  fa:16:3e:30:4f:90
-    net.name                 eth0
-    net.bonding              N/A
     trace.enable             1
     trace.more_trace         0
     trace.trace_size         8KB
@@ -744,7 +676,6 @@ displays the config options in a slightly different format: section_name.key.
     tcp.measure_latency      0
     tcp.rto_min              100ms
     tcp.write_chunk_size     16KB
-    tcp.local_port_range     41000 64000
     shell.postinit_cmd       N/A
     dpdk.socket-mem          1024
     dpdk.pci                 0000:00:05.0
@@ -753,9 +684,6 @@ displays the config options in a slightly different format: section_name.key.
     dpdk.mbuf_mem_size       0
     dpdk.numa                0
     dpdk.huge-unlink         1
-    offload.flow_mark        1
-    offload.sock_offload     0
-    offload.port_block_offload 1
     pktfuzz.enable           0
     pktfuzz.log              N/A
     archive.enable           1
@@ -814,4 +742,4 @@ Supported Hardwares
 
 **NICs:**
 
-- Mellanox NIC (from ConnectX-4 to ConnectX-7)
+- AWS ENA

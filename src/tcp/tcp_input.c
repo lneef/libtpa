@@ -1534,9 +1534,6 @@ static inline int tcp_rcv_pkt(struct tpa_worker *worker, struct tcp_sock *tsock,
   tsock_trace_rcv_pkt(tsock, pkt, worker->ts_us);
   tsock_update_last_ts(tsock, LAST_TS_RCV_PKT);
 
-  if (unlikely(pkt->wid != worker->id && tsock->state != TCP_STATE_LISTEN))
-    return -WARN_STALE_PKT_WORKER_MISMATCH;
-
   if (likely(tsock->state == TCP_STATE_ESTABLISHED &&
              tcp_rcv_fastpath(worker, tsock, pkt) == 1)) {
     tsock_rearm_timer_keepalive(tsock, worker->ts_us);
@@ -1737,7 +1734,7 @@ uint32_t tcp_input(struct tpa_worker *worker, uint16_t port_id) {
       continue;
     }
 
-    err = tsock_lookup(worker, worker->id, pkt, &tsock);
+    err = tsock_lookup(worker, pkt, &tsock);
     if (unlikely(err)) {
       free_err_pkt(worker, NULL, pkt, err);
       continue;

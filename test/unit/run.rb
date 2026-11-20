@@ -254,7 +254,6 @@ def runner_loop(id, cpu)
 
 				system "cp cfg-syntax #{ut_root}"
 				system "cp cfg-option #{ut_root}"
-				system "cp bonding.txt #{ut_root}"
 				Dir.chdir ut_root
 
 				log_info ut_id, "running #{tcase.cmd} ..."
