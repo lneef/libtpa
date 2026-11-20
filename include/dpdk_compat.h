@@ -54,18 +54,6 @@
 #define ETH_SRC_ADDR(eth)		(&(eth)->src_addr)
 #define ETH_DST_ADDR(eth)		(&(eth)->dst_addr)
 
-static inline struct rte_device *eth_device_get(uint16_t port)
-{
-	struct rte_eth_dev_info dev_info;
-	int err;
-
-	err = rte_eth_dev_info_get(port, &dev_info);
-	if (err != 0)
-		return NULL;
-
-	return dev_info.device;
-}
-
 static inline void dpdk_enable_jumbo_frame(struct rte_eth_conf *conf, uint32_t max_rx_pkt_len)
 {
 	conf->rxmode.mtu = max_rx_pkt_len - RTE_ETHER_HDR_LEN - RTE_ETHER_CRC_LEN;
@@ -75,11 +63,6 @@ static inline void dpdk_enable_jumbo_frame(struct rte_eth_conf *conf, uint32_t m
 
 #define ETH_SRC_ADDR(eth)		(&(eth)->s_addr)
 #define ETH_DST_ADDR(eth)		(&(eth)->d_addr)
-
-static inline struct rte_device *eth_device_get(uint16_t port)
-{
-	return rte_eth_devices[port].device;
-}
 
 static inline void dpdk_enable_jumbo_frame(struct rte_eth_conf *conf, uint32_t max_rx_pkt_len)
 {

@@ -69,7 +69,6 @@ struct net_dev {
   struct dev_ip gw6;
 
   struct rte_ether_addr mac;
-  struct rte_ether_addr gw_mac;
 
   struct dev_port ports[MAX_PORT_NR];
   uint16_t nr_port;
@@ -136,24 +135,6 @@ static inline void dev_txq_flush(uint16_t queue_id) {
   }
 }
 
-static inline void dev_port_txq_drain(uint16_t port_id, uint16_t queue_id) {
-  struct dev_txq *txq = dev_port_txq(port_id, queue_id);
-  if (txq->nr_pkt == 0 || tpa_cfg.nr_dpdk_port == 0)
-    return;
-
-  while (txq->nr_pkt) {
-    dev_port_txq_flush(port_id, queue_id);
-  }
-}
-
-static inline void dev_txq_drain(uint16_t queue_id) {
-  uint16_t i;
-
-  for (i = 0; i < dev.nr_port; i++) {
-    dev_port_txq_drain(i, queue_id);
-  }
-}
-
 static inline int dev_port_txq_enqueue(uint16_t port_id, uint16_t queue_id,
                                        struct packet *pkt) {
   struct dev_txq *txq = dev_port_txq(port_id, queue_id);
@@ -215,14 +196,6 @@ static inline void dev_port_rxq_recv(uint16_t port_id, uint16_t queue_id) {
 
     if (nr_pkt < budget)
       break;
-  }
-}
-
-static inline void dev_rxq_recv(uint16_t queue_id) {
-  uint16_t i;
-
-  for (i = 0; i < dev.nr_port; i++) {
-    dev_port_rxq_recv(i, queue_id);
   }
 }
 

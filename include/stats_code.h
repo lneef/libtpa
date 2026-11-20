@@ -94,7 +94,6 @@ STATS(ERR_RECLAIM_HALF_OPEN_TSOCK, "number of times reclaiming a half-open sock 
 STATS(ARP_SOLICIT,       "number of arp solicitation sent")
 STATS(ERR_ARP_SOLICIT,   "number of times we failed to send an arp solicitation")
 STATS(ERR_NEIGH_ENQUEUE, "number of times we failed to enqueue a pkt waiting for neigh response")
-STATS(ERR_NEIGH_FLUSH_ENQUEUE, "number of times we failed to enqueue a pkt to worker's neigh_flush_queue")
 STATS(WARN_NEIGH_CHANGED, "number of neigh entry changed")
 
 STATS(ERR_WRITE_TOO_MANY_IOV, "nr_iov provided by zwritev is too big")

@@ -211,7 +211,7 @@ static void dpdk_port_init(uint16_t port, int nr_queue) {
   struct rte_eth_rxconf rxq_conf;
   struct rte_eth_txconf txq_conf;
   uint16_t nr_rx_desc = NR_RX_DESC;
-  uint16_t nr_tx_desc = NR_RX_DESC;
+  uint16_t nr_tx_desc = NR_TX_DESC;
   struct rte_eth_conf port_conf;
   struct rte_ether_addr mac;
   struct rte_mempool *mempool;

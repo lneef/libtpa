@@ -208,7 +208,7 @@ As the name sugguests, it's a benchmark tool. Below is the usage.
      -n nr_thread      specifies the thread count (default: 1)
      -i                do integrity verification (default: off)
      -C nr_conn        specifies the connection to be created for each thread (default: 1)
-     -W 0|1            disable/enable zero copy write (default: on)
+     -W 0|1            disable/enable zero copy write (default: off)
      -S start_cpu      specifies the starting cpu to bind
 
    Server options:
