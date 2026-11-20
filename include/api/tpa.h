@@ -157,9 +157,35 @@ struct tpa_memseg {
 };
 
 struct tpa_memseg *tpa_memsegs_get(void);
-int tpa_extmem_register(void *virt_addr, size_t len, uint64_t *phys_addrs,
+
+/*
+ * External memory, for zero copy write with buffers owned by the APP.
+ * These lift the DPDK extmem API (rte_extmem_register, rte_dev_dma_map
+ * and their undos) and follow its rules:
+ *
+ * - register makes the region known to DPDK. @virt_addr and @len have
+ *   to be aligned to @page_size. @iova_addrs gives the IO address of
+ *   each page; it can be NULL when they are not known.
+ * - map makes the region DMA-able by the NIC, at IO address @iova. The
+ *   region has to be registered first.
+ * - unmap and unregister undo them, in that order, once no data written
+ *   from the region is in flight any more.
+ *
+ * All return 0 on success, or -1 with errno set.
+ *
+ * virt2iova returns the IO address of @virt_addr, to be used for
+ * @iova_addrs, @iova and tpa_iovec.iov_phys: the one given at register,
+ * or, when none was given, the one DPDK derives (the virtual address
+ * with an IOMMU, the physical address of the page otherwise; the page
+ * has to be resident then). It returns 0 with errno set on failure. It
+ * may do syscalls: look the address up once, not for every write.
+ */
+int tpa_extmem_register(void *virt_addr, size_t len, uint64_t *iova_addrs,
 			   int nr_page, size_t page_size);
 int tpa_extmem_unregister(void *virt_addr, size_t len);
+int tpa_extmem_map(void *virt_addr, uint64_t iova, size_t len);
+int tpa_extmem_unmap(void *virt_addr, uint64_t iova, size_t len);
+uint64_t tpa_extmem_virt2iova(void *virt_addr);
 
 #ifdef __cplusplus
 }

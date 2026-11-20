@@ -316,10 +316,14 @@ except three more fields need to be filled by the APP:
 
 .. note::
 
-   ``iov_phys`` is the IO address the NIC reads the buffer from. Only
-   buffers libtpa handed out itself (say, the ones got from ``tpa_zreadv``)
-   have a valid one: registering external memory is
-   :ref:`not supported <extmem_reg>`.
+   ``iov_phys`` is the IO address the NIC reads the buffer from. Buffers
+   libtpa handed out itself (say, the ones got from ``tpa_zreadv``) come
+   with a valid one. For a buffer owned by the APP, the memory region has
+   to be :ref:`registered and mapped <extmem_reg>` first, and
+   ``tpa_extmem_virt2iova`` tells the IO address of the buffer.
+
+   An iovec must not cross a page boundary of such a region, unless the
+   pages are contiguous in the IO address space as well.
 
    When ``iov_phys`` is set to 0, there is a special meaning in libtpa.
    It means the zero copy write is disabled, and libtpa will fallback
@@ -442,15 +446,80 @@ Misc
 
 **external memory management**
 
-Zero copy write with application owned buffers needs the memory region
-to be registered (and DMA mapped) first. This is not supported: both
-functions below fail with ``ENOTSUP``.
+Zero copy write with buffers owned by the APP needs the memory region
+they are in to be registered and mapped first. The four functions below
+lift the DPDK extmem API (``rte_extmem_register``, ``rte_dev_dma_map``
+and their undos) and follow its rules.
 
 .. code-block:: c
 
-    int tpa_extmem_register(void *virt_addr, size_t len, uint64_t *phys_addrs,
+    int tpa_extmem_register(void *virt_addr, size_t len, uint64_t *iova_addrs,
                             int nr_page, size_t page_size);
     int tpa_extmem_unregister(void *virt_addr, size_t len);
+    int tpa_extmem_map(void *virt_addr, uint64_t iova, size_t len);
+    int tpa_extmem_unmap(void *virt_addr, uint64_t iova, size_t len);
+    uint64_t tpa_extmem_virt2iova(void *virt_addr);
+
+* ``tpa_extmem_register`` makes the region known to DPDK. ``virt_addr``
+  and ``len`` have to be aligned to ``page_size``. ``iova_addrs`` gives
+  the IO address of each of the ``nr_page`` pages; it can be NULL when
+  they are not known. It does no mapping.
+
+* ``tpa_extmem_map`` makes the region DMA-able by the NIC, at the IO
+  address ``iova``. The region has to be registered first.
+
+* ``tpa_extmem_unmap`` and ``tpa_extmem_unregister`` undo them, in that
+  order. They must only be called when no data written from the region
+  is in flight any more, that is, after the ``iov_write_done`` callback
+  of every such write has been invoked.
+
+All of the above return 0 on success, or -1 with errno set.
+
+* ``tpa_extmem_virt2iova`` returns the IO address of ``virt_addr``, to
+  be used for ``iova_addrs``, ``iova`` and ``iov_phys``. It is the one
+  given at register or, when none was given, the one DPDK derives: the
+  virtual address with an IOMMU, the physical address of the page
+  otherwise. It returns 0 with errno set on failure. It may do syscalls,
+  so look the address up once and keep it, not for every write.
+
+.. code-block:: c
+   :caption: external memory register example
+
+    void *buf = aligned_alloc(4096, 4096);
+    uint64_t iova;
+
+    memset(buf, 0, 4096);
+    mlock(buf, 4096);
+    iova = tpa_extmem_virt2iova(buf);
+
+    if (iova == 0 ||
+        tpa_extmem_register(buf, 4096, &iova, 1, 4096) != 0 ||
+        (tpa_extmem_map(buf, iova, 4096) != 0 && errno != ENOTSUP)) {
+        fprintf(stderr, "failed to set up external memory: %s\n", strerror(errno));
+        return;
+    }
+
+You then can do zero copy write with addresses within the range
+[buf, buf + 4096), with ``iov_phys`` set to ``iova`` plus the offset
+of the data.
+
+.. note::
+
+    What the IO address is depends on how the NIC is attached. With an
+    IOMMU (``vfio-pci``), it is whatever ``tpa_extmem_map`` is told,
+    typically the virtual address itself. Without one (``vfio-pci`` in
+    no-IOMMU mode, or ``igb_uio``), it is the physical address: the pages
+    have to be resident and must not move, so use hugepages (the kernel
+    may migrate pages that are merely locked). Mapping is then either a
+    no-op or fails with ``ENOTSUP`` (``igb_uio``), which is fine to
+    ignore.
+
+    A region whose pages are not contiguous in the IO address space has
+    to be mapped piece by piece. DPDK keeps track of 256 mappings at
+    most, which is one more reason to use hugepages.
+
+    Every registered region takes one of DPDK's memseg lists, which are
+    limited: register few large regions rather than many small ones.
 
 Examples
 --------

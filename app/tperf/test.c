@@ -193,7 +193,7 @@ static int setup_test_data(struct test_thread *thread, struct connection *conn, 
 		len = MIN(budget - off, MBUF_SIZE);
 		iov[nr_iov].iov_base = mbuf->data;
 		iov[nr_iov].iov_len  = len;
-		iov[nr_iov].iov_phys = conn->enable_zwrite;
+		iov[nr_iov].iov_phys = conn->enable_zwrite ? mbuf->iova : 0;
 		iov[nr_iov].iov_write_done = zwrite_done;
 		iov[nr_iov].iov_param = mbuf;
 

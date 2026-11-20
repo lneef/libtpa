@@ -16,6 +16,7 @@ struct mbuf {
 
 	struct mbuf_pool *pool;
 	void *data;
+	uint64_t iova;	/* 0 if the pool is not set up for zero copy write */
 
 	void *private;
 };

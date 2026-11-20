@@ -13,6 +13,7 @@
 #include <signal.h>
 #include <sys/time.h>
 #include <sys/epoll.h>
+#include <sys/mman.h>
 
 #include <tpa.h>
 
@@ -55,6 +56,8 @@ static void zero_copy_write_done(void *iov_base, void *iov_param)
 #define PAGE_SIZE		4096
 #define EXTBUF_SIZE		(1*PAGE_SIZE)
 
+static uint64_t zwrite_extbuf_iova;
+
 static void *zwrite_extbuf_alloc(size_t size)
 {
 	static void *buf;
@@ -63,8 +66,33 @@ static void *zwrite_extbuf_alloc(size_t size)
 		buf = aligned_alloc(PAGE_SIZE, EXTBUF_SIZE);
 		assert(buf != NULL);
 
-		if (tpa_extmem_register(buf, EXTBUF_SIZE, NULL, EXTBUF_SIZE / PAGE_SIZE, PAGE_SIZE) != 0) {
+		/*
+		 * The NIC reads the buffer by its IO address, which is the
+		 * physical one without an IOMMU: the page has to be there
+		 * and stay. Note that mlock does not stop the kernel from
+		 * migrating it; a real APP should use hugepages.
+		 */
+		memset(buf, 0, EXTBUF_SIZE);
+		if (mlock(buf, EXTBUF_SIZE) != 0) {
+			fprintf(stderr, "failed to lock external memory: %s\n", strerror(errno));
+			exit(1);
+		}
+
+		zwrite_extbuf_iova = tpa_extmem_virt2iova(buf);
+		if (zwrite_extbuf_iova == 0) {
+			fprintf(stderr, "failed to get the IO address of external memory: %s\n", strerror(errno));
+			exit(1);
+		}
+
+		if (tpa_extmem_register(buf, EXTBUF_SIZE, &zwrite_extbuf_iova,
+					EXTBUF_SIZE / PAGE_SIZE, PAGE_SIZE) != 0) {
 			fprintf(stderr, "failed to register external memory: %s\n", strerror(errno));
+			exit(1);
+		}
+
+		/* ENOTSUP: no IOMMU to program (say, igb_uio); nothing to map then */
+		if (tpa_extmem_map(buf, zwrite_extbuf_iova, EXTBUF_SIZE) != 0 && errno != ENOTSUP) {
+			fprintf(stderr, "failed to map external memory: %s\n", strerror(errno));
 			exit(1);
 		}
 	}
@@ -87,7 +115,7 @@ static int write_connection(char *line)
 		struct tpa_iovec iov;
 
 		iov.iov_base = zwrite_extbuf_alloc(strlen(line));
-		iov.iov_phys = 1;
+		iov.iov_phys = zwrite_extbuf_iova;
 		iov.iov_param = BUF_TYPE_EXTERNAL;
 		iov.iov_len = strlen(line);
 		iov.iov_write_done = zero_copy_write_done;

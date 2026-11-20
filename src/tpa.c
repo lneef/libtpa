@@ -12,8 +12,11 @@
 #include <sys/file.h>
 #include <numa.h>
 
+#include <rte_dev.h>
 #include <rte_eal.h>
+#include <rte_errno.h>
 #include <rte_malloc.h>
+#include <rte_memory.h>
 
 #include "api/tpa.h"
 
@@ -257,20 +260,104 @@ int tpa_init(int nr_worker)
 }
 
 /*
- * External memory needs the buffer to be DMA mapped with a real IOVA,
- * which is not implemented: fail instead of pretending it worked.
+ * External memory: a thin lift of the DPDK extmem API. Registering makes
+ * the region known to DPDK; mapping makes it DMA-able by the NIC. Neither
+ * implies the other.
  */
-int tpa_extmem_register(void *virt_addr, size_t len, uint64_t *phys_addrs,
+int tpa_extmem_register(void *virt_addr, size_t len, uint64_t *iova_addrs,
 			     int nr_page, size_t page_size)
 {
-	errno = ENOTSUP;
-	return -1;
+	if (rte_extmem_register(virt_addr, len, (rte_iova_t *)iova_addrs,
+				nr_page, page_size) != 0) {
+		errno = rte_errno;
+		return -1;
+	}
+
+	LOG("registered extmem: va=%p len=%zd page_size=%zd nr_page=%d",
+	    virt_addr, len, page_size, nr_page);
+
+	return 0;
 }
 
 int tpa_extmem_unregister(void *virt_addr, size_t len)
 {
-	errno = ENOTSUP;
-	return -1;
+	if (rte_extmem_unregister(virt_addr, len) != 0) {
+		errno = rte_errno;
+		return -1;
+	}
+
+	LOG("unregistered extmem: va=%p len=%zd", virt_addr, len);
+
+	return 0;
+}
+
+static struct rte_device *extmem_device_get(void)
+{
+	struct rte_eth_dev_info dev_info;
+
+	if (tpa_cfg.nr_dpdk_port == 0 || rte_eth_dev_info_get(0, &dev_info) != 0) {
+		errno = ENODEV;
+		return NULL;
+	}
+
+	return dev_info.device;
+}
+
+int tpa_extmem_map(void *virt_addr, uint64_t iova, size_t len)
+{
+	struct rte_device *device = extmem_device_get();
+
+	if (device == NULL)
+		return -1;
+
+	if (rte_dev_dma_map(device, virt_addr, iova, len) != 0) {
+		errno = rte_errno;
+		return -1;
+	}
+
+	LOG("mapped extmem: va=%p iova=0x%lx len=%zd", virt_addr, iova, len);
+
+	return 0;
+}
+
+int tpa_extmem_unmap(void *virt_addr, uint64_t iova, size_t len)
+{
+	struct rte_device *device = extmem_device_get();
+
+	if (device == NULL)
+		return -1;
+
+	if (rte_dev_dma_unmap(device, virt_addr, iova, len) != 0) {
+		errno = rte_errno;
+		return -1;
+	}
+
+	LOG("unmapped extmem: va=%p iova=0x%lx len=%zd", virt_addr, iova, len);
+
+	return 0;
+}
+
+/*
+ * The IO address given at register, or the one DPDK derives when none
+ * was given: the virtual address with IOVA as VA, the physical address
+ * otherwise.
+ */
+uint64_t tpa_extmem_virt2iova(void *virt_addr)
+{
+	struct rte_memseg *ms;
+	rte_iova_t iova;
+
+	ms = rte_mem_virt2memseg(virt_addr, NULL);
+	if (ms != NULL && ms->iova != RTE_BAD_IOVA)
+		return ms->iova + RTE_PTR_DIFF(virt_addr, ms->addr);
+
+	iova = rte_mem_virt2iova(virt_addr);
+	if (iova == RTE_BAD_IOVA) {
+		errno = EFAULT;
+		return 0;
+	}
+
+	return iova;
 }
 
 struct get_memsegs_ctx {
