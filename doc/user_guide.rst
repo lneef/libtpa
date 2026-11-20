@@ -185,8 +185,7 @@ listen on.
 
 **tperf**
 
-As the name sugguests, it's a benchmark tool. Below is the usage. You
-can check :ref:`loopback mode <loopback_mode>` section for examples.
+As the name sugguests, it's a benchmark tool. Below is the usage.
 
 .. code-block:: text
    :caption: Tperf Usage
@@ -201,7 +200,7 @@ can check :ref:`loopback mode <loopback_mode>` section for examples.
 
    Client options:
      -c server         run in client mode (the default mode) and specifies the server
-                       address (default: 127.0.0.1)
+                       address
      -t test           specifies the test mode, which is listed below
      -p port           specifies the port to connect to (default: 4096)
      -d duration       specifies the test duration (default: 10s)
@@ -245,60 +244,6 @@ Having said that, it's still recommended to set the TPA_ID by your own::
 That is because most of libtpa tools require the TPA_ID. Therefore,
 specifying the TPA_ID by yourself gives you a bit more control, especially
 when you want to run multiple instances of the same application.
-
-.. _loopback_mode:
-
-Loopback Mode
-~~~~~~~~~~~~~
-
-Libtpa supports loopback mode differently compared with the ``lo`` interface.
-Again, it requires physical loopback support from the NIC. That said, the
-packet will actually go into the NIC and then go back to the same host again.
-
-Below is an example demonstrating that. We run two libtpa applications on
-the same host, one is the tperf server, and the other one is the tperf client.
-
-.. code-block:: text
-   :caption: Tperf Server
-
-   # TPA_ID=server taskset -c 1 tperf -s -n 1
-   EAL: Detected 96 lcore(s)
-   EAL: Detected 2 NUMA nodes
-   EAL: Detected static linkage of DPDK
-   EAL: Selected IOVA mode 'PA'
-   EAL: No available hugepages reported in hugepages-1048576kB
-   EAL: Probing VFIO support...
-
-.. code-block:: text
-   :caption: Tperf Client
-
-   # TPA_ID=client taskset -c 2 tperf -c 127.0.0.1 -t rr -m 1
-   EAL: Detected 96 lcore(s)
-   EAL: Detected 2 NUMA nodes
-   EAL: Detected static linkage of DPDK
-   EAL: Selected IOVA mode 'PA'
-   EAL: No available hugepages reported in hugepages-1048576kB
-   EAL: Probing VFIO support...
-       0 RR .0 min=4.10us avg=4.43us max=96.51us count=224809
-       1 RR .0 min=4.10us avg=4.38us max=79.36us count=228426
-       2 RR .0 min=4.10us avg=4.36us max=84.22us count=229371
-       3 RR .0 min=4.10us avg=4.36us max=135.17us count=229385
-       4 RR .0 min=4.10us avg=4.36us max=81.41us count=229366
-       5 RR .0 min=4.10us avg=4.36us max=77.31us count=229459
-       6 RR .0 min=4.10us avg=4.36us max=78.08us count=229349
-       7 RR .0 min=4.10us avg=4.36us max=105.47us count=229238
-       8 RR .0 min=4.10us avg=4.36us max=77.82us count=229565
-       9 RR .0 min=4.10us avg=4.36us max=87.04us count=229363
-
-   ---
-    0 nr_conn=1 nr_zero_io_conn=0
-
-.. note::
-
-    Apparently, libtpa will not be able to connect to the loopback
-    TCP connections if the other end is Linux kernel TCP/IP stack.
-    Above works only because both the client and server are running
-    with libtpa.
 
 Tools
 -----
@@ -404,14 +349,14 @@ could always know what's exactly going on under the hoods.
 
 To demonstrates what a trace looks like, let's run the swing first::
 
-    # TPA_ID=client swing 127.0.0.1 5678
+    # TPA_ID=client swing 192.168.1.12 5678
     EAL: Detected 8 lcore(s)
     EAL: Detected 1 NUMA nodes
     EAL: Detected static linkage of DPDK
     EAL: Selected IOVA mode 'PA'
     EAL: No available hugepages reported in hugepages-1048576kB
     EAL: Probing VFIO support...
-    :: connecting to 127.0.0.1:5678 ... [connected]
+    :: connecting to 192.168.1.12:5678 ... [connected]
     > hello world
     < hello world
 

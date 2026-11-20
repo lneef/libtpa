@@ -128,13 +128,6 @@ int ndp_input(uint8_t *packet, size_t len)
 	return 0;
 }
 
-static void ndp_init(void)
-{
-	/* for supporting loopback mode */
-	neigh_update(&dev.ip6.ip, dev.mac.addr_bytes);
-}
-
 const struct neigh_ops ndp_ops = {
-	.nd_init = ndp_init,
 	.nd_solicit = ndp_solicit,
 };

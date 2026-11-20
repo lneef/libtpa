@@ -226,7 +226,6 @@ static void dpdk_port_init(uint16_t port, int nr_queue) {
   dpdk_enable_jumbo_frame(&port_conf, max_rx_pkt_len);
   port_conf.rxmode.offloads = RX_OFFLOAD & dev_info.rx_offload_capa;
   port_conf.txmode.offloads = TX_OFFLOAD & dev_info.tx_offload_capa;
-  port_conf.lpbk_mode = 1;
   if (nr_queue > 1) {
     port_conf.rxmode.mq_mode = RTE_ETH_MQ_RX_RSS;
     port_conf.rx_adv_conf.rss_conf.rss_key = (uint8_t *)rss_default_key_adapted;

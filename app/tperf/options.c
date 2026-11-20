@@ -20,7 +20,7 @@ void usage(void)
 			"\n"
 			"Client options:\n"
 			"  -c server         run in client mode (the default mode) and specifies the server \n"
-			"                    address (default: 127.0.0.1)\n"
+			"                    address\n"
 			"  -t test           specifies the test mode, which is listed below\n"
 			"  -p port           specifies the port to connect to (default: %d)\n"
 			"  -d duration       specifies the test duration (default: 10s)\n"
@@ -70,7 +70,6 @@ int parse_options(int argc, char **argv)
 	memset(&ctx, 0, sizeof(ctx));
 
 	ctx.is_client     = 1;
-	ctx.server        = "127.0.0.1";
 	ctx.test          = -1;
 	ctx.port          = TPERF_PORT;
 	ctx.nr_thread     = DEFAULT_NR_THREAD;
@@ -159,6 +158,11 @@ int parse_options(int argc, char **argv)
 
 	if (has_opt_c && ctx.is_client == 0) {
 		fprintf(stderr, "error: -c and -s can not be given at the same time\n\n");
+		usage();
+	}
+
+	if (ctx.is_client && !has_opt_c) {
+		fprintf(stderr, "error: missing mandatory option: -c server\n\n");
 		usage();
 	}
 

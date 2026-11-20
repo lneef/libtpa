@@ -389,7 +389,8 @@ static void neigh_impl_init(void)
 		impl = &neigh_impl[i];
 
 		LOG("neighbor init: %s", impl->name);
-		impl->ops->nd_init();
+		if (impl->ops->nd_init)
+			impl->ops->nd_init();
 	}
 }
 

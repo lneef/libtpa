@@ -353,7 +353,6 @@ void tsock_trace_uninit(struct tcp_sock *tsock) {
 #define _COPY_OPTS(x) short_opts->x = opts->x
 static void convert_sock_opts(const struct tpa_sock_opts *opts,
                               struct tpa_sock_opts_short *short_opts) {
-  _COPY_OPTS(local_port);
   _COPY_OPTS(data);
 }
 
@@ -648,8 +647,7 @@ static int tsock_bind(struct tcp_sock *tsock, struct tpa_ip *remote_ip,
   else
     tpa_ip_set_ipv4(&local_ip, dev.ip4);
 
-  sock_key_init(&key, remote_ip, remote_port, &local_ip,
-                tsock->opts.local_port);
+  sock_key_init(&key, remote_ip, remote_port, &local_ip, 0);
   local_port = port_bind_on_rss_port(tsock->worker, &key, tsock);
   if (local_port == 0) {
     errno = EADDRINUSE;
@@ -670,18 +668,11 @@ static int resolve_ip(const char *ip_str, struct tpa_ip *ip, int listen_mode) {
   if (!tpa_ip_from_str(ip, ip_str))
     goto err;
 
-  /*
-   * if it's a loopback address, turn it to a real address:
-   * the only way we now support loopback.
-   */
-  if (tpa_ip_is_loopback(ip)) {
-    if (tpa_ip_is_ipv4(ip))
-      tpa_ip_set_ipv4(ip, dev.ip4);
-    else
-      *ip = dev.ip6.ip;
-  }
+  /* there is no loopback: every packet goes out through the NIC */
+  if (tpa_ip_is_loopback(ip))
+    goto err;
 
-  /* ditto: need convert 0.0.0.0 to dev.ip4 in listen mode */
+  /* need convert 0.0.0.0 to dev.ip4 in listen mode */
   if (tpa_ip_is_ipv4(ip) && tpa_ip_get_ipv4(ip) == 0) {
     if (listen_mode)
       tpa_ip_set_ipv4(ip, dev.ip4);

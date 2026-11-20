@@ -56,28 +56,6 @@ static void test_tcp_connect_out_of_mem(void)
 	assert(ut_connect_to(SERVER_IP_STR, 8080, NULL) < 0);
 }
 
-static void test_tcp_connect_addrinuse(void)
-{
-	struct tpa_sock_opts opts;
-	int sid;
-
-	printf("testing %s ...\n", __func__);
-
-	sid = ut_connect_to(SERVER_IP_STR, SERVER_PORT, NULL);
-	assert(sid >= 0);
-
-	memset(&opts, 0, sizeof(opts));
-	opts.local_port = htons(sock_ctrl->socks[sid].local_port);
-	assert(ut_connect_to(SERVER_IP_STR, SERVER_PORT, &opts) == -1);
-	assert(errno == EADDRINUSE);
-
-	/* make sure tsock_free of above unsuccessfull socket will not free the port */
-	assert(ut_connect_to(SERVER_IP_STR, SERVER_PORT, &opts) == -1);
-	assert(errno == EADDRINUSE);
-
-	ut_close(&sock_ctrl->socks[sid], CLOSE_TYPE_CLOSE_DIRECTLY);
-}
-
 static void test_tcp_connect_invalid_addr(void)
 {
 	printf("testing %s ...\n", __func__);
@@ -127,7 +105,6 @@ int main(int argc, char *argv[])
 
 	test_tcp_connect_basic();
 	test_tcp_connect_small_init_snd_wnd();
-	test_tcp_connect_addrinuse();
 	test_tcp_connect_invalid_addr();
 	test_tcp_connect_recv_rst_before_xmit_syn();
 

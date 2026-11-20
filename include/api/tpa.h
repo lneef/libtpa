@@ -58,13 +58,7 @@ struct tpa_sock_opts {
 	 */
 	void *data;
 
-	/*
-	 * Specifies a local port to bind to.
-	 *
-	 * tpa_connect_to only.
-	 */
-	uint16_t local_port;
-	uint8_t reserved[128 - 18];  /* XXX: it's ugly */
+	uint8_t reserved[128 - 16];  /* XXX: it's ugly */
 } __attribute__((packed));
 
 struct tpa_ip {

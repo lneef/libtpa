@@ -127,15 +127,11 @@ static int arp_cache_init_from_env(const char *entries) {
 }
 
 static void arp_cache_init(void) {
-  struct tpa_ip ip;
   char *entries;
 
   entries = getenv("TPA_ARP_ENTRIES");
   if (entries)
     arp_cache_init_from_env(entries);
-
-  /* for supporting loopback mode */
-  neigh_update(tpa_ip_set_ipv4(&ip, dev.ip4), dev.mac.addr_bytes);
 }
 
 static int cmd_arp(struct shell_cmd_info *cmd) {

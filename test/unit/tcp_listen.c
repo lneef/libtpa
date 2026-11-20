@@ -373,17 +373,19 @@ static void test_tcp_listen_addr(void)
 	printf(":: %s\n", __func__);
 	int sid;
 
-	sid = listen_random_port("127.0.0.1", NULL); {
+	sid = listen_random_port(CLIENT_IP_STR, NULL); {
 		assert(sid >= 0);
 		ut_close(&sock_ctrl->socks[sid], CLOSE_TYPE_CLOSE_DIRECTLY);
 	}
 
-	sid = listen_random_port("::1", NULL); {
+	sid = listen_random_port(CLIENT_IP6_STR, NULL); {
 		assert(sid >= 0);
 		ut_close(&sock_ctrl->socks[sid], CLOSE_TYPE_CLOSE_DIRECTLY);
 	}
 
 	/* listen on any address other than local address would fail */
+	assert(tpa_listen_on("127.0.0.1", 80, NULL) < 0);
+	assert(tpa_listen_on("::1", 80, NULL) < 0);
 	assert(tpa_listen_on("::2", 80, NULL) < 0);
 	assert(tpa_listen_on("192.168.30.40", 80, NULL) < 0);
 }

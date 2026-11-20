@@ -79,9 +79,8 @@ It starts a new active connection, where
 * ``port`` specifies the remote port to connect to.
 
 * ``opts`` specifies additional options can be applied to this new
-  connection. It could simply be NULL when nothing special needed.
-  So far, only the option ``local_port`` is relevant to active
-  connections.
+  connection. It could simply be NULL: so far, no option is relevant
+  to active connections.
 
 .. code-block:: c
    :caption: sock options
@@ -101,13 +100,7 @@ It starts a new active connection, where
          */
         void *data;
 
-        /*
-         * Specifies a local port to bind to.
-         *
-         * tpa_connect_to only.
-         */
-        uint16_t local_port;
-        uint8_t reserved[128 - 18];  /* XXX: it's ugly */
+        uint8_t reserved[128 - 16];  /* XXX: it's ugly */
     } __attribute__((packed));
 
 .. note::
@@ -126,7 +119,7 @@ Like fd, a negative value means error. Here is an example:
 
     int sid;
 
-    sid = tpa_connect_to("::1", 80, NULL);
+    sid = tpa_connect_to("192.168.1.12", 80, NULL);
     if (sid < 0) {
         fprintf(stderr, "failed to connect: %s\n", strerror(errno));
         return -1;

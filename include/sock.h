@@ -72,7 +72,6 @@ enum {
 
 /* a short version of tpa_sock_opts, to reduce the memory usage */
 struct tpa_sock_opts_short {
-  uint16_t local_port;
   void *data;
 };
 

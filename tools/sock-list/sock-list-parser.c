@@ -265,7 +265,6 @@ static void dump_sock(struct tcp_sock *tsock, int verbose)
 	SHOW_FIELD2_QUOTED(events,            "%s", event_to_str(tsock->event.events));
 	SHOW_FIELD2(in_event_queue,           "%lu", NODE_GET_IDX(&tsock->event_node));
 
-	SHOW_FIELD(opts.local_port,     "%hu");
 
 	SHOW_FIELD(tso_enabled,"%d");
 	SHOW_FIELD(ts_enabled, "%hhu");
